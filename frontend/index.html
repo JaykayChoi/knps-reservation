@@ -1,249 +1,525 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>국립공원 예약 알림 설정</title>
+    <title>KNPS Reservation Monitor</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        forest: {
+                            50: '#f2f7f4',
+                            100: '#e1efe6',
+                            200: '#c4dfd0',
+                            300: '#9bc6ae',
+                            400: '#6ba686',
+                            500: '#478865',
+                            600: '#346c4f',
+                            700: '#2a5640',
+                            800: '#234534',
+                            900: '#1d392c',
+                            950: '#0f2018',
+                        },
+                        sand: '#f4f1ea',
+                        alert: '#e63946',
+                        accent: '#e9c46a',
+                    },
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                        serif: ['Fraunces', 'serif'],
+                    },
+                    boxShadow: {
+                        'brutal': '6px 6px 0px 0px rgba(15, 32, 24, 1)',
+                        'brutal-sm': '4px 4px 0px 0px rgba(15, 32, 24, 1)',
+                        'brutal-hover': '2px 2px 0px 0px rgba(15, 32, 24, 1)',
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        .checkbox-group {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        body {
+            background-color: #f4f1ea;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+            color: #0f2018;
+        }
+        
+        .brutal-card {
+            border: 2px solid #0f2018;
+            background: white;
+            box-shadow: 6px 6px 0px 0px rgba(15, 32, 24, 1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .brutal-input {
+            border: 2px solid #0f2018;
+            padding: 0.75rem 1rem;
+            width: 100%;
+            background: white;
+            transition: all 0.2s ease;
+            font-family: 'Outfit', sans-serif;
+        }
+        
+        .brutal-input:focus {
+            outline: none;
+            box-shadow: 4px 4px 0px 0px rgba(15, 32, 24, 1);
+            transform: translate(-2px, -2px);
+        }
+        
+        .brutal-checkbox {
+            appearance: none;
+            width: 1.5rem;
+            height: 1.5rem;
+            border: 2px solid #0f2018;
+            background-color: white;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.1s ease;
+            flex-shrink: 0;
+        }
+        
+        .brutal-checkbox:checked {
+            background-color: #0f2018;
+        }
+        
+        .brutal-checkbox:checked::after {
+            content: '';
+            position: absolute;
+            left: 7px;
+            top: 2px;
+            width: 6px;
+            height: 14px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+        
+        .brutal-btn {
+            border: 2px solid #0f2018;
+            font-weight: 600;
+            transition: all 0.1s ease;
+            box-shadow: 4px 4px 0px 0px rgba(15, 32, 24, 1);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             gap: 0.5rem;
         }
+        
+        .brutal-btn:active:not(:disabled) {
+            box-shadow: 0px 0px 0px 0px rgba(15, 32, 24, 1);
+            transform: translate(4px, 4px);
+        }
+        
+        .brutal-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            box-shadow: 0px 0px 0px 0px rgba(15, 32, 24, 1);
+            transform: translate(4px, 4px);
+        }
+        
+        .brutal-btn-primary {
+            background-color: #0f2018;
+            color: white;
+        }
+        
+        .brutal-btn-secondary {
+            background-color: #e9c46a;
+            color: #0f2018;
+        }
+        
+        .brutal-btn-outline {
+            background-color: white;
+            color: #0f2018;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f4f1ea;
+            border-left: 2px solid #0f2018;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #0f2018;
+        }
+
+        /* Toast Animation */
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+        .toast-enter { animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .toast-exit { animation: slideOut 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-4 md:p-8">
-    <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
-        <h1 class="text-2xl font-bold mb-6 text-green-700 flex items-center">
-            <span class="mr-2">⛺</span> 국립공원 야영장 빈자리 알림 설정
-        </h1>
+<body class="min-h-screen flex flex-col relative">
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none"></div>
 
-        <form id="settingsForm" class="space-y-8">
-            <!-- 1. 기간 1 (요일 및 주수) -->
-            <section>
-                <h2 class="text-lg font-semibold mb-3 border-b pb-1">1. 기간 설정 (주수 및 요일)</h2>
-                <div class="flex flex-wrap gap-4 items-center mb-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">조회 범위 (주)</label>
-                        <select name="weeks" id="weeks" class="mt-1 block w-24 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
-                            <option value="1">1주</option>
-                            <option value="2">2주</option>
-                            <option value="4">4주</option>
-                            <option value="8" selected>8주</option>
-                            <option value="10">10주</option>
-                        </select>
-                    </div>
-                    <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">요일 선택 (다중)</label>
-                        <div class="flex flex-wrap gap-3">
-                            <label class="flex items-center space-x-2">
-                                <input type="checkbox" name="days" value="4" class="rounded text-green-600 focus:ring-green-500">
-                                <span>금</span>
-                            </label>
-                            <label class="flex items-center space-x-2">
-                                <input type="checkbox" name="days" value="5" checked class="rounded text-green-600 focus:ring-green-500">
-                                <span>토</span>
-                            </label>
-                            <label class="flex items-center space-x-2">
-                                <input type="checkbox" name="days" value="6" class="rounded text-green-600 focus:ring-green-500">
-                                <span>일</span>
-                            </label>
-                            <label class="flex items-center space-x-2 text-gray-400">
-                                <input type="checkbox" name="days" value="0" class="rounded text-green-600 focus:ring-green-500">
-                                <span>월</span>
-                            </label>
-                            <label class="flex items-center space-x-2 text-gray-400">
-                                <input type="checkbox" name="days" value="1" class="rounded text-green-600 focus:ring-green-500">
-                                <span>화</span>
-                            </label>
-                            <label class="flex items-center space-x-2 text-gray-400">
-                                <input type="checkbox" name="days" value="2" class="rounded text-green-600 focus:ring-green-500">
-                                <span>수</span>
-                            </label>
-                            <label class="flex items-center space-x-2 text-gray-400">
-                                <input type="checkbox" name="days" value="3" class="rounded text-green-600 focus:ring-green-500">
-                                <span>목</span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- 2. 기간 2 (특정 날짜) -->
-            <section>
-                <h2 class="text-lg font-semibold mb-3 border-b pb-1">2. 특정 날짜 (추가)</h2>
-                <p class="text-xs text-gray-500 mb-2">위 요일 설정 외에 추가로 확인하고 싶은 날짜를 입력하세요 (쉼표로 구분, YYYY-MM-DD)</p>
-                <input type="text" name="specific_dates" id="specific_dates" placeholder="2026-03-01, 2026-05-05" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
-            </section>
-
-            <!-- 3. 자리 종류 -->
-            <section>
-                <h2 class="text-lg font-semibold mb-3 border-b pb-1">3. 시설 종류</h2>
-                <div class="checkbox-group">
-                    <label class="flex items-center space-x-2">
-                        <input type="checkbox" name="facility_types" value="자동차야영장" checked class="rounded text-green-600 focus:ring-green-500">
-                        <span>자동차야영장</span>
-                    </label>
-                    <label class="flex items-center space-x-2">
-                        <input type="checkbox" name="facility_types" value="카라반" checked class="rounded text-green-600 focus:ring-green-500">
-                        <span>카라반</span>
-                    </label>
-                    <label class="flex items-center space-x-2">
-                        <input type="checkbox" name="facility_types" value="특화야영장" checked class="rounded text-green-600 focus:ring-green-500">
-                        <span>특화야영장</span>
-                    </label>
-                    <label class="flex items-center space-x-2">
-                        <input type="checkbox" name="facility_types" value="자연야영장" class="rounded text-green-600 focus:ring-green-500">
-                        <span>자연야영장</span>
-                    </label>
-                </div>
-            </section>
-
-            <!-- 4. 장소 (국립공원) -->
-            <section>
-                <h2 class="text-lg font-semibold mb-3 border-b pb-1">4. 대상 국립공원</h2>
-                <div class="checkbox-group" id="park-list">
-                    <!-- JavaScript will populate this -->
-                </div>
-            </section>
-
-            <!-- 5. 쿨다운 및 알림 설정 -->
-            <section class="grid md:grid-cols-2 gap-6">
-                <div>
-                    <h2 class="text-lg font-semibold mb-3 border-b pb-1">5. 알림 쿨다운 (일)</h2>
-                    <input type="number" name="cooldown_days" id="cooldown_days" value="3" min="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
-                    <p class="text-xs text-gray-500 mt-1">동일한 자리에 대해 며칠 동안 알림을 보내지 않을지 설정합니다.</p>
-                </div>
-                <div>
-                    <h2 class="text-lg font-semibold mb-3 border-b pb-1">6. 텔레그램 설정</h2>
-                    <div class="space-y-2">
-                        <input type="password" name="telegram_bot_token" id="telegram_bot_token" placeholder="Bot Token" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 text-sm">
-                        <input type="text" name="telegram_chat_id" id="telegram_chat_id" placeholder="Chat ID" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 text-sm">
-                    </div>
-                </div>
-            </section>
-
-            <div class="pt-6 border-t flex gap-4">
-                <button type="submit" id="saveBtn" class="flex-1 bg-green-600 text-white font-bold py-3 px-6 rounded-md hover:bg-green-700 transition">
-                    설정 저장
+    <!-- Header -->
+    <header class="sticky top-0 z-40 bg-sand/90 backdrop-blur-md border-b-2 border-forest-950">
+        <div class="max-w-6xl mx-auto px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-forest-950 text-white flex items-center justify-center font-serif font-bold text-xl border-2 border-forest-950">K</div>
+                <h1 class="font-serif text-2xl font-bold tracking-tight text-forest-950">KNPS Monitor</h1>
+            </div>
+            <div class="flex items-center gap-3 w-full sm:w-auto">
+                <button id="btn-test" class="brutal-btn brutal-btn-outline px-5 py-2.5 text-sm w-full sm:w-auto">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Test Now
                 </button>
-                <button type="button" id="checkNowBtn" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-md hover:bg-blue-700 transition">
-                    지금 즉시 확인
+                <button id="btn-save" class="brutal-btn brutal-btn-primary px-6 py-2.5 text-sm w-full sm:w-auto">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                    Save Settings
                 </button>
             </div>
-        </form>
-    </div>
+        </div>
+    </header>
 
-    <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-md shadow-lg transform translate-y-20 opacity-0 transition-all duration-300">
-        설정이 저장되었습니다.
-    </div>
+    <!-- Main Content -->
+    <main class="flex-grow max-w-6xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-12">
+        <form id="settings-form" class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- Left Column: Time & Dates -->
+            <div class="lg:col-span-4 flex flex-col gap-8">
+                
+                <!-- Section 1: Timeframe -->
+                <section class="brutal-card p-6 sm:p-8 relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 w-16 h-16 bg-accent border-l-2 border-b-2 border-forest-950 transform translate-x-8 -translate-y-8 rotate-45 group-hover:translate-x-6 group-hover:-translate-y-6 transition-transform"></div>
+                    <h2 class="font-serif text-xl font-bold mb-6 flex items-center gap-2">
+                        <span class="w-6 h-6 bg-forest-950 text-white text-xs flex items-center justify-center rounded-full">1</span>
+                        Timeframe
+                    </h2>
+                    
+                    <div class="space-y-6">
+                        <div>
+                            <label for="weeks_ahead" class="block text-sm font-bold mb-2 uppercase tracking-wider text-forest-800">Weeks Ahead</label>
+                            <div class="flex items-center gap-3">
+                                <input type="number" id="weeks_ahead" name="weeks_ahead" min="1" max="10" value="4" class="brutal-input text-lg font-bold w-24 text-center">
+                                <span class="text-sm font-medium text-forest-700">weeks to monitor</span>
+                            </div>
+                        </div>
+                        
+                        <div class="pt-4 border-t-2 border-forest-950/10">
+                            <label class="block text-sm font-bold mb-3 uppercase tracking-wider text-forest-800">Target Days</label>
+                            <div class="flex flex-col gap-3">
+                                <label class="flex items-center gap-3 cursor-pointer group">
+                                    <input type="checkbox" name="selected_days" value="Fri" class="brutal-checkbox">
+                                    <span class="font-medium group-hover:text-forest-600 transition-colors">Friday (금)</span>
+                                </label>
+                                <label class="flex items-center gap-3 cursor-pointer group">
+                                    <input type="checkbox" name="selected_days" value="Sat" class="brutal-checkbox">
+                                    <span class="font-medium group-hover:text-forest-600 transition-colors">Saturday (토)</span>
+                                </label>
+                                <label class="flex items-center gap-3 cursor-pointer group">
+                                    <input type="checkbox" name="selected_days" value="Sun" class="brutal-checkbox">
+                                    <span class="font-medium group-hover:text-forest-600 transition-colors">Sunday (일)</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 2: Specific Dates -->
+                <section class="brutal-card p-6 sm:p-8">
+                    <h2 class="font-serif text-xl font-bold mb-6 flex items-center gap-2">
+                        <span class="w-6 h-6 bg-forest-950 text-white text-xs flex items-center justify-center rounded-full">2</span>
+                        Specific Dates
+                    </h2>
+                    <p class="text-sm text-forest-700 mb-5 leading-relaxed">Override the timeframe above by specifying an exact date range.</p>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label for="start_date" class="block text-xs font-bold mb-1 uppercase tracking-wider text-forest-800">Start Date</label>
+                            <input type="date" id="start_date" name="start_date" class="brutal-input text-sm">
+                        </div>
+                        <div>
+                            <label for="end_date" class="block text-xs font-bold mb-1 uppercase tracking-wider text-forest-800">End Date</label>
+                            <input type="date" id="end_date" name="end_date" class="brutal-input text-sm">
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 5: Cooldown -->
+                <section class="brutal-card p-6 sm:p-8 bg-forest-50">
+                    <h2 class="font-serif text-xl font-bold mb-6 flex items-center gap-2">
+                        <span class="w-6 h-6 bg-forest-950 text-white text-xs flex items-center justify-center rounded-full">5</span>
+                        Cooldown
+                    </h2>
+                    
+                    <div>
+                        <label for="cooldown_days" class="block text-sm font-bold mb-2 uppercase tracking-wider text-forest-800">Notification Cooldown</label>
+                        <div class="flex items-center gap-3">
+                            <input type="number" id="cooldown_days" name="cooldown_days" min="0" max="30" value="1" class="brutal-input text-lg font-bold w-24 text-center">
+                            <span class="text-sm font-medium text-forest-700">days</span>
+                        </div>
+                        <p class="text-xs text-forest-600 mt-2">Prevents spamming for the same availability.</p>
+                    </div>
+                </section>
+
+            </div>
+
+            <!-- Right Column: Parks, Facilities, Telegram -->
+            <div class="lg:col-span-8 flex flex-col gap-8">
+                
+                <!-- Section 3: Facility Types -->
+                <section class="brutal-card p-6 sm:p-8">
+                    <h2 class="font-serif text-xl font-bold mb-6 flex items-center gap-2">
+                        <span class="w-6 h-6 bg-forest-950 text-white text-xs flex items-center justify-center rounded-full">3</span>
+                        Facility Types
+                    </h2>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <label class="flex items-center gap-3 p-3 border-2 border-forest-950/20 hover:border-forest-950 cursor-pointer transition-colors bg-sand/50">
+                            <input type="checkbox" name="selected_types" value="특화야영장" class="brutal-checkbox">
+                            <span class="font-bold">특화야영장</span>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 border-2 border-forest-950/20 hover:border-forest-950 cursor-pointer transition-colors bg-sand/50">
+                            <input type="checkbox" name="selected_types" value="카라반" class="brutal-checkbox">
+                            <span class="font-bold">카라반</span>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 border-2 border-forest-950/20 hover:border-forest-950 cursor-pointer transition-colors bg-sand/50">
+                            <input type="checkbox" name="selected_types" value="자동차야영장" class="brutal-checkbox">
+                            <span class="font-bold">자동차야영장</span>
+                        </label>
+                    </div>
+                </section>
+
+                <!-- Section 4: National Parks -->
+                <section class="brutal-card p-6 sm:p-8">
+                    <div class="flex justify-between items-end mb-6">
+                        <h2 class="font-serif text-xl font-bold flex items-center gap-2">
+                            <span class="w-6 h-6 bg-forest-950 text-white text-xs flex items-center justify-center rounded-full">4</span>
+                            National Parks
+                        </h2>
+                        <button type="button" id="btn-select-all-parks" class="text-xs font-bold uppercase tracking-wider text-forest-600 hover:text-forest-950 underline decoration-2 underline-offset-4">Select All</button>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-3" id="parks-container">
+                        <!-- Parks will be injected here by JS -->
+                    </div>
+                </section>
+
+                <!-- Section 6: Telegram Settings -->
+                <section class="brutal-card p-6 sm:p-8 bg-forest-950 text-sand border-forest-950">
+                    <h2 class="font-serif text-xl font-bold mb-6 flex items-center gap-2 text-white">
+                        <span class="w-6 h-6 bg-accent text-forest-950 text-xs flex items-center justify-center rounded-full">6</span>
+                        Telegram Integration
+                    </h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="telegram_bot_token" class="block text-xs font-bold mb-2 uppercase tracking-wider text-forest-300">Bot Token</label>
+                            <input type="password" id="telegram_bot_token" name="telegram_bot_token" class="brutal-input bg-forest-900 border-forest-700 text-white focus:border-accent focus:shadow-[4px_4px_0px_0px_#e9c46a] placeholder-forest-700" placeholder="123456789:ABCdefGHIjklMNOpqrSTUvwxYZ">
+                        </div>
+                        <div>
+                            <label for="telegram_chat_id" class="block text-xs font-bold mb-2 uppercase tracking-wider text-forest-300">Chat ID</label>
+                            <input type="text" id="telegram_chat_id" name="telegram_chat_id" class="brutal-input bg-forest-900 border-forest-700 text-white focus:border-accent focus:shadow-[4px_4px_0px_0px_#e9c46a] placeholder-forest-700" placeholder="-1001234567890">
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </form>
+    </main>
 
     <script>
-        const parks = [
-            "가야산", "경주", "계룡산", "내장산", "다도해해상", "덕유산", "무등산", 
-            "변산반도", "북한산", "소백산", "속리산", "오대산", "월악산", "월출산", 
-            "주왕산", "지리산", "치악산", "태백산", "태안해안", "한라산", "한려해상", "설악산"
+        // Constants
+        const PARKS = [
+            '지리산', '경주', '계룡산', '내장산', '가야산', '덕유산', '오대산', 
+            '주왕산', '태안해안', '다도해해상', '변산반도', '월출산', '소백산', 
+            '월악산', '북한산', '치악산', '한려해상', '속리산', '설악산', '무등산', '태백산'
         ];
 
-        const parkListEl = document.getElementById('park-list');
-        parks.forEach(park => {
-            const label = document.createElement('label');
-            label.className = 'flex items-center space-x-2';
-            label.innerHTML = `<input type="checkbox" name="parks" value="${park}" class="rounded text-green-600 focus:ring-green-500"><span>${park}</span>`;
-            parkListEl.appendChild(label);
+        // DOM Elements
+        const form = document.getElementById('settings-form');
+        const parksContainer = document.getElementById('parks-container');
+        const btnSave = document.getElementById('btn-save');
+        const btnTest = document.getElementById('btn-test');
+        const btnSelectAllParks = document.getElementById('btn-select-all-parks');
+        const toastContainer = document.getElementById('toast-container');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            renderParks();
+            fetchSettings();
+            setupEventListeners();
         });
 
-        // Backend URL (in production this would be relative or from env)
-        const API_BASE = ""; 
+        // Render Parks Checkboxes
+        function renderParks() {
+            parksContainer.innerHTML = PARKS.map(park => `
+                <label class="flex items-center gap-2 cursor-pointer group py-1">
+                    <input type="checkbox" name="selected_parks" value="${park}" class="brutal-checkbox w-5 h-5">
+                    <span class="text-sm font-medium group-hover:text-forest-600 transition-colors">${park}</span>
+                </label>
+            `).join('');
+        }
 
-        async function loadSettings() {
+        // Setup Event Listeners
+        function setupEventListeners() {
+            btnSave.addEventListener('click', handleSave);
+            btnTest.addEventListener('click', handleTest);
+            
+            let allSelected = false;
+            btnSelectAllParks.addEventListener('click', () => {
+                allSelected = !allSelected;
+                const checkboxes = document.querySelectorAll('input[name="selected_parks"]');
+                checkboxes.forEach(cb => cb.checked = allSelected);
+                btnSelectAllParks.textContent = allSelected ? 'Deselect All' : 'Select All';
+            });
+        }
+
+        // Fetch Settings
+        async function fetchSettings() {
             try {
-                const res = await fetch(`${API_BASE}/api/settings`);
-                const data = await res.json();
+                const response = await fetch('/api/settings');
+                if (!response.ok) throw new Error('Failed to fetch settings');
                 
-                if (data.id) {
-                    // Populate Form
-                    if (data.weeks) document.getElementById('weeks').value = data.weeks;
-                    if (data.cooldown_days) document.getElementById('cooldown_days').value = data.cooldown_days;
-                    if (data.telegram_bot_token) document.getElementById('telegram_bot_token').value = data.telegram_bot_token;
-                    if (data.telegram_chat_id) document.getElementById('telegram_chat_id').value = data.telegram_chat_id;
-                    if (data.specific_dates) document.getElementById('specific_dates').value = data.specific_dates.join(', ');
-
-                    // Checkboxes
-                    const checkList = (name, values) => {
-                        const cbs = document.querySelectorAll(`input[name="${name}"]`);
-                        cbs.forEach(cb => {
-                            cb.checked = values.includes(cb.value) || values.includes(Number(cb.value));
-                        });
-                    };
-
-                    if (data.days) checkList('days', data.days);
-                    if (data.facility_types) checkList('facility_types', data.facility_types);
-                    if (data.parks) checkList('parks', data.parks);
-                }
-            } catch (err) {
-                console.error("Failed to load settings:", err);
+                const data = await response.json();
+                populateForm(data);
+            } catch (error) {
+                console.error('Error fetching settings:', error);
+                showToast('Failed to load settings. Is the backend running?', 'error');
             }
         }
 
-        function showToast(msg, isError = false) {
-            const toast = document.getElementById('toast');
-            toast.textContent = msg;
-            toast.className = `fixed bottom-4 right-4 text-white px-6 py-3 rounded-md shadow-lg transform transition-all duration-300 ${isError ? 'bg-red-600' : 'bg-gray-800'}`;
-            toast.classList.remove('translate-y-20', 'opacity-0');
-            setTimeout(() => {
-                toast.classList.add('translate-y-20', 'opacity-0');
-            }, 3000);
+        // Populate Form
+        function populateForm(data) {
+            if (!data) return;
+
+            // Text/Number inputs
+            const inputs = ['weeks_ahead', 'start_date', 'end_date', 'cooldown_days', 'telegram_bot_token', 'telegram_chat_id'];
+            inputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && data[id] !== undefined && data[id] !== null) {
+                    el.value = data[id];
+                }
+            });
+
+            // Checkboxes
+            const checkboxGroups = ['selected_days', 'selected_types', 'selected_parks'];
+            checkboxGroups.forEach(group => {
+                if (Array.isArray(data[group])) {
+                    const checkboxes = document.querySelectorAll(`input[name="${group}"]`);
+                    checkboxes.forEach(cb => {
+                        cb.checked = data[group].includes(cb.value);
+                    });
+                }
+            });
         }
 
-        document.getElementById('settingsForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            
-            const payload = {
-                weeks: parseInt(formData.get('weeks')),
-                cooldown_days: parseInt(formData.get('cooldown_days')),
-                telegram_bot_token: formData.get('telegram_bot_token'),
-                telegram_chat_id: formData.get('telegram_chat_id'),
-                specific_dates: formData.get('specific_dates').split(',').map(s => s.trim()).filter(Boolean),
-                days: Array.from(formData.getAll('days')).map(Number),
-                facility_types: Array.from(formData.getAll('facility_types')),
-                parks: Array.from(formData.getAll('parks'))
+        // Gather Form Data
+        function getFormData() {
+            const data = {
+                weeks_ahead: parseInt(document.getElementById('weeks_ahead').value) || 4,
+                start_date: document.getElementById('start_date').value || null,
+                end_date: document.getElementById('end_date').value || null,
+                cooldown_days: parseInt(document.getElementById('cooldown_days').value) || 1,
+                telegram_bot_token: document.getElementById('telegram_bot_token').value || '',
+                telegram_chat_id: document.getElementById('telegram_chat_id').value || '',
+                selected_days: [],
+                selected_types: [],
+                selected_parks: []
             };
 
+            // Gather checkboxes
+            ['selected_days', 'selected_types', 'selected_parks'].forEach(group => {
+                const checked = document.querySelectorAll(`input[name="${group}"]:checked`);
+                data[group] = Array.from(checked).map(cb => cb.value);
+            });
+
+            return data;
+        }
+
+        // Handle Save
+        async function handleSave(e) {
+            e.preventDefault();
+            const originalText = btnSave.innerHTML;
+            btnSave.disabled = true;
+            btnSave.innerHTML = '<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Saving...';
+
             try {
-                const res = await fetch(`${API_BASE}/api/settings`, {
+                const data = getFormData();
+                const response = await fetch('/api/settings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(data)
                 });
-                if (res.ok) showToast("설정이 저장되었습니다.");
-                else showToast("저장 실패", true);
-            } catch (err) {
-                showToast("오류 발생", true);
-            }
-        });
 
-        document.getElementById('checkNowBtn').addEventListener('click', async () => {
-            const btn = document.getElementById('checkNowBtn');
-            const originalText = btn.textContent;
-            btn.textContent = "확인 중...";
-            btn.disabled = true;
+                if (!response.ok) throw new Error('Failed to save settings');
+                
+                showToast('Settings saved successfully!', 'success');
+            } catch (error) {
+                console.error('Error saving settings:', error);
+                showToast('Failed to save settings.', 'error');
+            } finally {
+                btnSave.disabled = false;
+                btnSave.innerHTML = originalText;
+            }
+        }
+
+        // Handle Test
+        async function handleTest(e) {
+            e.preventDefault();
+            const originalText = btnTest.innerHTML;
+            btnTest.disabled = true;
+            btnTest.innerHTML = '<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-forest-950" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Testing...';
 
             try {
-                const res = await fetch(`${API_BASE}/api/check`);
-                const data = await res.json();
-                showToast(data.status);
-            } catch (err) {
-                showToast("확인 작업 실패", true);
+                const response = await fetch('/api/check', { method: 'POST' });
+                const result = await response.json();
+                
+                if (!response.ok) throw new Error(result.error || 'Test failed');
+                
+                showToast(`Test triggered successfully! Check Telegram.`, 'success');
+            } catch (error) {
+                console.error('Error triggering test:', error);
+                showToast(`Test failed: ${error.message}`, 'error');
             } finally {
-                btn.textContent = originalText;
-                btn.disabled = false;
+                btnTest.disabled = false;
+                btnTest.innerHTML = originalText;
             }
-        });
+        }
 
-        window.addEventListener('DOMContentLoaded', loadSettings);
+        // Toast Notification System
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            
+            const isSuccess = type === 'success';
+            const bgColor = isSuccess ? 'bg-forest-950' : 'bg-alert';
+            const textColor = isSuccess ? 'text-white' : 'text-white';
+            const icon = isSuccess 
+                ? '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
+                : '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+
+            toast.className = `toast-enter flex items-center gap-3 px-4 py-3 border-2 border-forest-950 shadow-brutal pointer-events-auto ${bgColor} ${textColor}`;
+            toast.innerHTML = `
+                ${icon}
+                <span class="font-medium text-sm">${message}</span>
+            `;
+
+            toastContainer.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.replace('toast-enter', 'toast-exit');
+                toast.addEventListener('animationend', () => {
+                    toast.remove();
+                });
+            }, 3000);
+        }
     </script>
 </body>
 </html>

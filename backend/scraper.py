@@ -11,6 +11,7 @@ def get_target_dates(weeks, selected_days, specific_dates):
     if weeks and selected_days:
         for i in range(weeks * 7):
             date = today + datetime.timedelta(days=i)
+            # Python weekday(): Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
             if date.weekday() in selected_days:
                 target_dates.add(date.strftime("%Y%m%d"))
 
@@ -32,13 +33,6 @@ def fetch_reservations(dates, facility_types, parks):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Referer": "https://reservation.knps.or.kr/reservation/searchCampRemainSite.do"
     }
-
-    # Filter by park if parks list is provided, otherwise search all (empty string)
-    # The API might handle multiple parks differently, but the old app.py sent "park": "" to search all.
-    # If we want to filter by park, we should either filter the results or send specific park IDs.
-    # Since we shouldn't hardcode, and the user selects multiple parks, 
-    # we'll search all and filter in Python to be safe, or iterate parks if needed.
-    # Let's search all first as it's more efficient than N API calls if "park": "" works.
 
     for date in dates:
         try:

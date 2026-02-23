@@ -32,17 +32,45 @@ def check_reservations():
         return jsonify({"error": "No settings found"}), 404
 
     # 1. Get target dates
+    # Map day strings from frontend to Python weekdays
+    day_map = {"Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6}
+    raw_days = settings.get("selected_days", ["Fri", "Sat", "Sun"])
+    processed_days = []
+    if isinstance(raw_days, list):
+        for d in raw_days:
+            if isinstance(d, int): processed_days.append(d)
+            elif d in day_map: processed_days.append(day_map[d])
+    
     dates = scraper.get_target_dates(
-        settings.get("weeks"), 
-        settings.get("days"), 
-        settings.get("specific_dates")
+        settings.get("weeks_ahead", 8), 
+        processed_days or [4, 5, 6], 
+        [] # We'll handle start_date/end_date specifically
     )
+    
+    # Add start_date/end_date range if exists
+    start_date = settings.get("start_date")
+    end_date = settings.get("end_date")
+    if start_date and end_date:
+        import datetime
+        try:
+            sd = datetime.datetime.strptime(start_date, "%Y-%m-%d").date()
+            ed = datetime.datetime.strptime(end_date, "%Y-%m-%d").date()
+            if sd <= ed:
+                span = (ed - sd).days + 1
+                if span > 120: span = 120 # Cap at 120 days
+                for i in range(span):
+                    dates.append((sd + datetime.timedelta(days=i)).strftime("%Y%m%d"))
+        except:
+            pass
+    
+    # Unique and sorted
+    dates = sorted(list(set(dates)))
     
     # 2. Fetch reservations
     available = scraper.fetch_reservations(
         dates, 
-        settings.get("facility_types"), 
-        settings.get("parks")
+        settings.get("selected_types", []), 
+        settings.get("selected_parks", [])
     )
     
     # 3. Filter by cooldown
