@@ -1,0 +1,19 @@
+# Local configurations
+config.ini
+.env
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+.pytest_cache/
+
+# Databases
+supabase/.temp/
+
+
+# Node.js
+node_modules/

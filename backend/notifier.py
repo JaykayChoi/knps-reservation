@@ -1,10 +1,11 @@
 import requests
 
-def send_telegram_notification(token, chat_id, reservations):
+def send_telegram_notification(token, chat_id, reservations, is_test=False):
     if not token or not chat_id or not reservations:
         return
 
-    message = "🔔 *[국립공원 빈자리 알림]*\n\n"
+    header = "[TEST] 🔔" if is_test else "🔔"
+    message = f"{header} *[국립공원 빈자리 알림]*\n\n"
     for res in reservations:
         date_str = f"{res['date'][:4]}-{res['date'][4:6]}-{res['date'][6:8]}"
         message += f"📅 *{date_str}*\n"
