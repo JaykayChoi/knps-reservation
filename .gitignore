@@ -10,6 +10,8 @@ __pycache__/
 venv/
 .venv/
 .pytest_cache/
+*.log
+backend/*.log
 
 # Databases
 supabase/.temp/
