@@ -59,11 +59,17 @@ def create_settings(settings):
     client = get_supabase()
     if not client:
         return None
-    
-    # Check if we already have 10 settings (max limit)
+    # Get existing settings to check count and find next ID
     response = client.table("user_settings").select("id").execute()
-    if len(response.data) >= 10:
+    existing_settings = response.data
+    # Check if we already have 10 settings (max limit)
+    if len(existing_settings) >= 10:
         raise ValueError("Maximum of 10 settings reached")
+    # Calculate next available ID
+    if existing_settings:
+        next_id = max(setting["id"] for setting in existing_settings) + 1
+    else:
+        next_id = 1  # Start from 1 if no settings exist
     
     # Set default values
     default_settings = {
@@ -92,6 +98,10 @@ def create_settings(settings):
     for key, value in extra_fields.items():
         if key not in merged_settings:
             merged_settings[key] = value
+    
+    # Add the calculated ID to the settings
+    merged_settings["id"] = next_id
+    
     try:
         response = client.table("user_settings").insert(merged_settings).execute()
         if response.data:
