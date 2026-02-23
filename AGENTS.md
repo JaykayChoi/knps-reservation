@@ -73,3 +73,21 @@ python app.py
  **UI/UX**: Improved the Neobrutalist dashboard with better data persistence, "Select All" functionality, and manual test triggers with `[TEST]` prefix separation.
  **Security**: Secured test credentials in `config.ini` and updated `.gitignore` to exclude sensitive local files and `node_modules/`.
  **QA**: Created `QA_CHECKLIST.md` and verified all core system behaviors via Playwright E2E automation.
+
+## WINDOWS-SPECIFIC GOTCHAS
+
+### `nul` File Creation Prevention
+**Issue**: On Windows, `nul` is a special device file (like `/dev/null` on Unix). Accidentally redirecting output to lowercase `nul` creates a file instead of using the null device.
+
+**How it happens**:
+- Command: `command > nul` (should be `command > NUL`)
+- Windows is case-insensitive, so `nul` creates a file
+- Git then tracks this empty `nul` file
+
+**Prevention**:
+1. Always use uppercase `NUL` for null device redirection on Windows
+2. Or use cross-platform: `command > /dev/null 2>&1` (works in Git Bash, WSL)
+3. Add `nul` to `.gitignore` as a safety measure
+4. Check for `nul` file in pre-commit hooks
+
+**Added to `.gitignore`**: `nul` file is now explicitly ignored.

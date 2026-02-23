@@ -86,24 +86,27 @@ class TestGetSupabase:
         client = db.get_supabase()
         assert client is None
 
-
 class TestGetSettings:
     """Tests for get_settings() function."""
-    
-    def test_get_settings_existing_data(self, mocker):
+    def test_get_settings_specific_id(self, mocker):
         """Test retrieving existing settings from database."""
         # Mock Supabase client
         mock_client = Mock()
         mock_response = Mock()
         mock_response.data = [{
             "id": 1,
+            "name": "Test Setting",
+            "date_mode": "weekday",
+            "is_active": True,
             "weeks_ahead": 4,
             "selected_days": ["Fri", "Sat"],
             "selected_types": ["특화야영장"],
             "selected_parks": ["지리산"],
             "cooldown_days": 2,
             "telegram_bot_token": "test-token",
-            "telegram_chat_id": "test-chat-id"
+            "telegram_chat_id": "test-chat-id",
+            "created_at": "2026-02-23T10:00:00Z",
+            "updated_at": "2026-02-23T10:00:00Z"
         }]
         
         mock_table = Mock()
@@ -112,109 +115,331 @@ class TestGetSettings:
         mock_client.table.return_value = mock_table
         
         mocker.patch('db.get_supabase', return_value=mock_client)
-        
-        # Call function
-        settings = db.get_settings()
+        # Call function with specific ID
+        settings = db.get_settings(1)
         
         # Verify calls
         mock_client.table.assert_called_once_with("user_settings")
         mock_client.table().select.assert_called_once_with("*")
         mock_client.table().select().eq.assert_called_once_with("id", 1)
-        
         # Verify result
         assert settings == mock_response.data[0]
-    
-    def test_get_settings_no_data_creates_default(self, mocker):
-        """Test that default settings are created when no data exists."""
+    def test_get_settings_all_active(self, mocker):
+        """Test retrieving all active settings."""
         # Mock Supabase client
         mock_client = Mock()
         mock_response = Mock()
-        mock_response.data = []  # No existing data
+        mock_response.data = [{
+            "id": 1,
+            "name": "Setting 1",
+            "is_active": True
+        }, {
+            "id": 2,
+            "name": "Setting 2",
+            "is_active": True
+        }, {
+            "id": 3,
+            "name": "Setting 3",
+            "is_active": False
+        }]
         
         mock_table = Mock()
-        mock_table.select.return_value.eq.return_value = mock_table
+        mock_table.select.return_value.eq.return_value.order.return_value = mock_table
         mock_table.execute.return_value = mock_response
+        mock_client.table.return_value = mock_table
         
-        # Mock insert call
-        mock_insert_result = Mock()
-        mock_table.insert.return_value.execute.return_value = mock_insert_result
+        mocker.patch('db.get_supabase', return_value=mock_client)
+        # Call function without ID (gets all active)
+        settings = db.get_settings()
+        # Verify calls
+        mock_client.table.assert_called_once_with("user_settings")
+        mock_client.table().select.assert_called_once_with("*")
+        mock_client.table().select().eq.assert_called_once_with("is_active", True)
+        mock_client.table().select().eq().order.assert_called_once_with("created_at")
+        assert len(settings) == 3
+        assert settings[0]["id"] == 1
+        assert settings[1]["id"] == 2
+        assert settings[2]["id"] == 3
+    def test_get_settings_backward_compatibility(self, mocker):
+        """Test backward compatibility when is_active column doesn't exist."""
+        # Mock Supabase client
+        mock_client = Mock()
+        mock_response1 = Mock()
+        mock_response1.execute.side_effect = Exception("column \"is_active\" does not exist")
+        mock_response2 = Mock()
+        mock_response2.data = [{"id": 1, "name": "Old Setting"}]
+        mock_table = Mock()
+        # Create proper chain for first call (with is_active filter)
+        mock_chain1 = Mock()
+        mock_chain1.execute = mock_response1.execute
+        mock_table.select.return_value.eq.return_value.order.return_value = mock_chain1
         
+        # Create proper chain for second call (without is_active filter)
+        mock_chain2 = Mock()
+        mock_chain2.execute.return_value = mock_response2
+        mock_table.select.return_value.order.return_value = mock_chain2
+        mock_client.table.return_value = mock_table
+        mocker.patch('db.get_supabase', return_value=mock_client)
+        # Call function
+        settings = db.get_settings()
+        # Should fall back to getting all settings
+        assert len(settings) == 1
+        assert settings[0]["id"] == 1
+    
+    def test_get_settings_no_client(self, mocker):
+        """Test that empty list is returned when no Supabase client is available."""
+        mocker.patch('db.get_supabase', return_value=None)
+        
+        settings = db.get_settings()
+        assert settings == []
+    def test_get_settings_specific_id_no_client(self, mocker):
+        """Test that empty dict is returned when no Supabase client is available for specific ID."""
+        mocker.patch('db.get_supabase', return_value=None)
+        settings = db.get_settings(1)
+        assert settings == {}
+    """Tests for update_settings() function."""
+    """Tests for get_all_settings() function."""
+    
+    def test_get_all_settings_success(self, mocker):
+        """Test retrieving all settings including inactive ones."""
+        # Mock Supabase client
+        mock_client = Mock()
+        mock_response = Mock()
+        mock_response.data = [{
+            "id": 1,
+            "name": "Setting 1",
+            "is_active": True
+        }, {
+            "id": 2,
+            "name": "Setting 2",
+            "is_active": False
+        }]
+        
+        mock_table = Mock()
+        mock_table.select.return_value.order.return_value = mock_table
+        mock_table.execute.return_value = mock_response
         mock_client.table.return_value = mock_table
         
         mocker.patch('db.get_supabase', return_value=mock_client)
         
         # Call function
-        settings = db.get_settings()
+        settings = db.get_all_settings()
         
-        # Verify select was called
-        mock_client.table.assert_any_call("user_settings")
+        # Verify calls
+        mock_client.table.assert_called_once_with("user_settings")
         mock_client.table().select.assert_called_once_with("*")
-        mock_client.table().select().eq.assert_called_once_with("id", 1)
+        mock_client.table().select().order.assert_called_once_with("created_at")
         
-        # Verify insert was called with default settings
-        expected_default = {
-            "id": 1,
-            "weeks_ahead": 8,
-            "selected_days": ["Fri", "Sat", "Sun"],
-            "start_date": None,
-            "end_date": None,
-            "selected_types": ["특화야영장", "카라반", "자동차야영장"],
-            "selected_parks": [],
-            "cooldown_days": 3,
-            "telegram_bot_token": "",
-            "telegram_chat_id": ""
-        }
-        mock_client.table().insert.assert_called_once_with(expected_default)
-        
-        # Verify returned default settings
-        assert settings == expected_default
+        # Verify result
+        assert len(settings) == 2
+        assert settings[0]["id"] == 1
+        assert settings[1]["id"] == 2
     
-    def test_get_settings_no_client(self, mocker):
-        """Test that empty dict is returned when no Supabase client is available."""
-        mocker.patch('db.get_supabase', return_value=None)
-        
-        settings = db.get_settings()
-        assert settings == {}
-
-
-class TestUpdateSettings:
-    """Tests for update_settings() function."""
-    
-    def test_update_settings_success(self, mocker):
-        """Test updating settings with valid data."""
+    def test_get_all_settings_backward_compatibility(self, mocker):
+        """Test backward compatibility when created_at column doesn't exist."""
         # Mock Supabase client
         mock_client = Mock()
         mock_table = Mock()
+        
+        # First call raises exception
+        mock_table.select.return_value.order.return_value.execute.side_effect = [
+            Exception("column \"created_at\" does not exist"),
+            Mock(data=[{"id": 1, "name": "Old Setting"}])
+        ]
+        
+        mock_client.table.return_value = mock_table
+        mocker.patch('db.get_supabase', return_value=mock_client)
+        
+        # Call function
+        settings = db.get_all_settings()
+        
+        # Should fall back to ordering by id
+        assert len(settings) == 1
+        assert settings[0]["id"] == 1
+    
+    def test_get_all_settings_no_client(self, mocker):
+        """Test that empty list is returned when no Supabase client is available."""
+        mocker.patch('db.get_supabase', return_value=None)
+        
+        settings = db.get_all_settings()
+        assert settings == []
+
+class TestCreateSettings:
+    """Tests for create_settings() function."""
+    
+    def test_create_settings_success(self, mocker):
+        """Test creating a new settings row."""
+        # Mock Supabase client
+        mock_client = Mock()
+        mock_response = Mock()
+        mock_response.data = [{
+            "id": 1,
+            "name": "New Setting",
+            "date_mode": "weekday",
+            "is_active": True
+        }]
+        
+        mock_table = Mock()
+        mock_table.select.return_value.execute.return_value = Mock(data=[])  # No existing settings
+        mock_table.insert.return_value.execute.return_value = mock_response
         mock_client.table.return_value = mock_table
         
         mocker.patch('db.get_supabase', return_value=mock_client)
         
         # Test data
         test_settings = {
-            "weeks_ahead": 6,
+            "name": "New Setting",
+            "weeks_ahead": 8
+        }
+        
+        # Call function
+        result = db.create_settings(test_settings)
+        
+        # Verify calls
+        mock_client.table.assert_called_with("user_settings")
+        # Should check existing settings count
+        mock_table.select.assert_called_with("id")
+        # Should insert with merged settings
+        mock_table.insert.assert_called_once()
+        
+        # Verify result
+        assert result == mock_response.data[0]
+    
+    def test_create_settings_max_limit(self, mocker):
+        """Test that creating settings fails when maximum limit (10) is reached."""
+        # Mock Supabase client
+        mock_client = Mock()
+        mock_response = Mock()
+        mock_response.data = [{"id": i} for i in range(10)]  # 10 existing settings
+        
+        mock_table = Mock()
+        mock_table.select.return_value.execute.return_value = mock_response
+        mock_client.table.return_value = mock_table
+        
+        mocker.patch('db.get_supabase', return_value=mock_client)
+        
+        # Test data
+        test_settings = {"name": "New Setting"}
+        
+        # Call function - should raise ValueError
+        with pytest.raises(ValueError, match="Maximum of 10 settings reached"):
+            db.create_settings(test_settings)
+    
+    def test_create_settings_backward_compatibility(self, mocker):
+        """Test backward compatibility when new columns don't exist."""
+        # Mock Supabase client
+        mock_client = Mock()
+        mock_response = Mock()
+        mock_response.data = [{"id": 1, "weeks_ahead": 8}]
+        
+        mock_table = Mock()
+        mock_table.select.return_value.execute.return_value = Mock(data=[])
+        # First insert fails with column error
+        mock_table.insert.return_value.execute.side_effect = [
+            Exception("column \"name\" does not exist"),
+            mock_response
+        ]
+        mock_client.table.return_value = mock_table
+        
+        mocker.patch('db.get_supabase', return_value=mock_client)
+        
+        # Test data
+        test_settings = {"weeks_ahead": 8}
+        
+        # Call function
+        result = db.create_settings(test_settings)
+        
+        # Should retry without new columns
+        assert mock_table.insert.call_count == 2
+        assert result == mock_response.data[0]
+    def test_create_settings_no_client(self, mocker):
+        """Test that None is returned when no Supabase client is available."""
+        mocker.patch('db.get_supabase', return_value=None)
+        result = db.create_settings({"name": "Test"})
+        assert result is None
+class TestUpdateSettings:
+    """Tests for update_settings() function."""
+    def test_update_settings_with_specific_id(self, mocker):
+        """Test updating settings with a specific ID."""
+        # Mock Supabase client
+        mock_client = Mock()
+        mock_table = Mock()
+        mock_client.table.return_value = mock_table
+        mocker.patch('db.get_supabase', return_value=mock_client)
+        # Test data
+        test_settings = {
             "selected_days": ["Mon", "Tue"],
             "selected_types": ["자동차야영장"],
             "cooldown_days": 5
         }
         
-        # Call function
+        # Call function with specific ID
+        db.update_settings(test_settings, setting_id=2)
+        
+        # Verify update was called with specific ID
+        mock_client.table.assert_called_once_with("user_settings")
+        mock_table.update.assert_called_once_with(test_settings)
+        mock_table.update().eq.assert_called_once_with("id", 2)
+        mock_table.update().eq().execute.assert_called_once()
+    
+    def test_update_settings_without_id_active_exists(self, mocker):
+        """Test updating first active setting when no ID is provided."""
+        # Mock Supabase client
+        mock_client = Mock()
+        mock_response = Mock()
+        mock_response.data = [{"id": 3}]
+        
+        mock_table = Mock()
+        mock_table.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_response
+        mock_client.table.return_value = mock_table
+        
+        mocker.patch('db.get_supabase', return_value=mock_client)
+        
+        # Test data
+        test_settings = {"weeks_ahead": 4}
+        
+        # Call function without ID
         db.update_settings(test_settings)
         
-        # Verify upsert was called with id 1 merged with settings
-        expected_upsert_data = {"id": 1, **test_settings}
-        mock_client.table.assert_called_once_with("user_settings")
-        mock_table.upsert.assert_called_once_with(expected_upsert_data)
-        mock_table.upsert().execute.assert_called_once()
+        # Should find first active setting and update it
+        mock_table.select.assert_called_with("id")
+        mock_table.select().eq.assert_called_with("is_active", True)
+        mock_table.select().eq().order.assert_called_with("created_at")
+        mock_table.select().eq().order().limit.assert_called_with(1)
+        
+        # Should update with ID 3
+        mock_table.update.assert_called_once_with(test_settings)
+        mock_table.update().eq.assert_called_once_with("id", 3)
     
-    def test_update_settings_no_client(self, mocker):
+    def test_update_settings_without_id_backward_compatibility(self, mocker):
+        """Test backward compatibility when is_active column doesn't exist."""
+        # Mock Supabase client
+        mock_client = Mock()
+        mock_response = Mock()
+        mock_response.data = [{"id": 1}]
+        mock_table = Mock()
+        # First call raises exception, second succeeds
+        # Need to create proper mock chain for the exception
+        mock_chain1 = Mock()
+        mock_chain1.execute.side_effect = Exception("column \"is_active\" does not exist")
+        mock_table.select.return_value.eq.return_value.order.return_value.limit.return_value = mock_chain1
+        mock_chain2 = Mock()
+        mock_chain2.execute.return_value = mock_response
+        mock_table.select.return_value.order.return_value.limit.return_value = mock_chain2
+        mock_client.table.return_value = mock_table
+        
+        mocker.patch('db.get_supabase', return_value=mock_client)
+        # Test data
+        test_settings = {"weeks_ahead": 4}
+        # Call function without ID
+        db.update_settings(test_settings)
+        # Should fall back to getting first setting by id
+        assert mock_table.select.call_count == 2
+        mock_table.update.assert_called_once_with(test_settings)
+        mock_table.update().eq.assert_called_once_with("id", 1)
         """Test that update does nothing when no Supabase client is available."""
         mocker.patch('db.get_supabase', return_value=None)
-        
-        # This should not raise any exception
         db.update_settings({"weeks_ahead": 4})
-        
-        # No assertions needed - just ensuring no errors occur
-
 
 class TestCheckCooldown:
     """Tests for check_cooldown() function."""

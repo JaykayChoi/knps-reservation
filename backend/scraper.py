@@ -3,28 +3,27 @@ import datetime
 
 KNPS_API_URL = "https://reservation.knps.or.kr/reservation/selectCampRemainSiteList.do"
 
-def get_target_dates(weeks, selected_days, specific_dates):
+def get_target_dates(weeks, selected_days, specific_dates, date_mode="weekday"):
     today = datetime.date.today()
     target_dates = set()
+    if date_mode == "weekday":
+        # Weekday based dates
+        if weeks and selected_days:
+            for i in range(weeks * 7):
+                date = today + datetime.timedelta(days=i)
+                # Python weekday(): Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
+                if date.weekday() in selected_days:
+                    target_dates.add(date.strftime("%Y%m%d"))
+    elif date_mode == "absolute":
+        # Absolute date range (use specific_dates)
+        if specific_dates:
+            for date_str in specific_dates:
+                # specific_dates are expected in YYYY-MM-DD or YYYYMMDD
+                clean_date = date_str.replace("-", "").replace(".", "")
+                if len(clean_date) == 8:
+                    target_dates.add(clean_date)
 
-    # Weekday based dates
-    if weeks and selected_days:
-        for i in range(weeks * 7):
-            date = today + datetime.timedelta(days=i)
-            # Python weekday(): Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
-            if date.weekday() in selected_days:
-                target_dates.add(date.strftime("%Y%m%d"))
-
-    # Specific dates
-    if specific_dates:
-        for date_str in specific_dates:
-            # specific_dates are expected in YYYY-MM-DD or YYYYMMDD
-            clean_date = date_str.replace("-", "").replace(".", "")
-            if len(clean_date) == 8:
-                target_dates.add(clean_date)
-
-    return sorted(list(target_dates))
-
+    return target_dates
 def fetch_reservations(dates, facility_types, parks):
     results = []
     headers = {

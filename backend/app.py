@@ -27,7 +27,6 @@ def get_settings():
     except Exception as e:
         logger.exception("Error in GET /api/settings")
         return jsonify({"error": str(e)}), 500
-
 @app.route("/api/settings", methods=["POST"])
 def update_settings():
     try:
@@ -38,79 +37,199 @@ def update_settings():
         logger.exception("Error in POST /api/settings")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/settings/all", methods=["GET"])
+def get_all_settings():
+    try:
+        settings = db.get_all_settings()
+        return jsonify(settings)
+    except Exception as e:
+        logger.exception("Error in GET /api/settings/all")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/settings/<int:setting_id>", methods=["GET"])
+def get_setting_by_id(setting_id):
+    try:
+        setting = db.get_settings(setting_id)
+        if not setting:
+            return jsonify({"error": "Setting not found"}), 404
+        return jsonify(setting)
+    except Exception as e:
+        logger.exception(f"Error in GET /api/settings/{setting_id}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/settings/<int:setting_id>", methods=["PUT"])
+def update_setting_by_id(setting_id):
+    try:
+        data = request.json
+        db.update_settings(data, setting_id)
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.exception(f"Error in PUT /api/settings/{setting_id}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/settings/<int:setting_id>", methods=["DELETE"])
+def delete_setting(setting_id):
+    try:
+        client = db.get_supabase()
+        if not client:
+            return jsonify({"error": "Database connection failed"}), 500
+        
+        response = client.table("user_settings").delete().eq("id", setting_id).execute()
+        if response.data:
+            return jsonify({"success": True})
+        else:
+            return jsonify({"error": "Setting not found"}), 404
+    except Exception as e:
+        logger.exception(f"Error in DELETE /api/settings/{setting_id}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/settings", methods=["PUT"])
+def create_setting():
+    try:
+        data = request.json
+        new_setting = db.create_settings(data)
+        if not new_setting:
+            return jsonify({"error": "Failed to create setting"}), 500
+        return jsonify({"success": True, "setting": new_setting})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.exception("Error in PUT /api/settings")
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/check", methods=["GET", "POST"])
 def check_reservations():
     try:
-        settings = db.get_settings()
-        if not settings:
-            return jsonify({"error": "No settings found"}), 404
-
-        # 1. Get target dates
-        day_map = {"Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6}
-        raw_days = settings.get("selected_days", ["Fri", "Sat", "Sun"])
-        processed_days = []
-        if isinstance(raw_days, list):
-            for d in raw_days:
-                if isinstance(d, int): processed_days.append(d)
-                elif d in day_map: processed_days.append(day_map[d])
+        # Get all active settings
+        all_settings = db.get_settings()  # Returns all active settings
+        if not all_settings:
+            return jsonify({"error": "No active settings found"}), 404
         
-        dates = scraper.get_target_dates(
-            settings.get("weeks_ahead", 8), 
-            processed_days or [4, 5, 6], 
-            []
-        )
+        all_notifications = []
+        total_available = 0
         
-        start_date = settings.get("start_date")
-        end_date = settings.get("end_date")
-        if start_date and end_date:
-            import datetime
-            try:
-                sd = datetime.datetime.strptime(start_date, "%Y-%m-%d").date()
-                ed = datetime.datetime.strptime(end_date, "%Y-%m-%d").date()
-                if sd <= ed:
-                    span = (ed - sd).days + 1
-                    if span > 120: span = 120
-                    for i in range(span):
-                        dates.append((sd + datetime.timedelta(days=i)).strftime("%Y%m%d"))
-            except:
-                pass
-        
-        dates = sorted(list(set(dates)))
-        
-        # 2. Fetch reservations
-        available = scraper.fetch_reservations(
-            dates, 
-            settings.get("selected_types", []), 
-            settings.get("selected_parks", [])
-        )
-        
-        # 3. Filter by cooldown
-        to_notify = []
-        cooldown_days = settings.get("cooldown_days", 3)
-        
-        for res in available:
-            if not db.check_cooldown(res["identifier"], cooldown_days):
-                to_notify.append(res)
-        
+        for settings in all_settings:
+            # 1. Get target dates based on date_mode
+            date_mode = settings.get("date_mode", "weekday")
+            
+            if date_mode == "weekday":
+                day_map = {"Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6}
+                raw_days = settings.get("selected_days", ["Fri", "Sat", "Sun"])
+                processed_days = []
+                if isinstance(raw_days, list):
+                    for d in raw_days:
+                        if isinstance(d, int): processed_days.append(d)
+                        elif d in day_map: processed_days.append(day_map[d])
+                dates = scraper.get_target_dates(
+                    settings.get("weeks_ahead", 8), 
+                    processed_days or [4, 5, 6], 
+                    [],
+                    date_mode="weekday"
+                )
+                
+                # Also check specific dates if provided
+                start_date = settings.get("start_date")
+                end_date = settings.get("end_date")
+                if start_date and end_date:
+                    import datetime
+                    try:
+                        sd = datetime.datetime.strptime(start_date, "%Y-%m-%d").date()
+                        ed = datetime.datetime.strptime(end_date, "%Y-%m-%d").date()
+                        if sd <= ed:
+                            span = (ed - sd).days + 1
+                            if span > 120: span = 120
+                            for i in range(span):
+                                dates.append((sd + datetime.timedelta(days=i)).strftime("%Y%m%d"))
+                    except:
+                        pass
+            elif date_mode == "absolute":
+                # For absolute mode, use start_date and end_date as specific dates
+                specific_dates = []
+                start_date = settings.get("start_date")
+                end_date = settings.get("end_date")
+                if start_date and end_date:
+                    import datetime
+                    try:
+                        sd = datetime.datetime.strptime(start_date, "%Y-%m-%d").date()
+                        ed = datetime.datetime.strptime(end_date, "%Y-%m-%d").date()
+                        if sd <= ed:
+                            span = (ed - sd).days + 1
+                            if span > 120: span = 120
+                            for i in range(span):
+                                specific_dates.append((sd + datetime.timedelta(days=i)).strftime("%Y-%m-%d"))
+                    except:
+                        pass
+                
+                dates = scraper.get_target_dates(
+                    None, 
+                    [], 
+                    specific_dates,
+                    date_mode="absolute"
+                )
+            
+            dates = sorted(list(set(dates)))
+            # 2. Fetch reservations
+            available = scraper.fetch_reservations(
+                dates, 
+                settings.get("selected_types", []), 
+                settings.get("selected_parks", [])
+            )
+            # 3. Filter by cooldown
+            to_notify = []
+            cooldown_days = settings.get("cooldown_days", 3)
+            for res in available:
+                if not db.check_cooldown(res["identifier"], cooldown_days):
+                    to_notify.append(res)
+            if to_notify:
+                all_notifications.append({
+                    "setting_id": settings.get("id"),
+                    "setting_name": settings.get("name", "Unnamed Setting"),
+                    "notifications": to_notify
+                })
+                total_available += len(to_notify)
         # 4. Notify and Record
-        if to_notify:
+        if all_notifications:
             # Only prefix [TEST] if explicitly requested via query param
             is_test = request.args.get("test") == "true"
-            logger.info(f"Sending notification for {len(to_notify)} items. is_test={is_test}")
-            success = notifier.send_telegram_notification(
-                settings.get("telegram_bot_token"),
-                settings.get("telegram_chat_id"),
-                to_notify,
-                is_test=is_test
-            )
-            if success:
-                for res in to_notify:
-                    db.record_notification(res["identifier"])
-                return jsonify({"status": "Notifications sent", "count": len(to_notify)})
+            # Group notifications by Telegram credentials
+            notifications_by_telegram = {}
+            for notification_group in all_notifications:
+                setting = next((s for s in all_settings if s.get("id") == notification_group["setting_id"]), {})
+                token = setting.get("telegram_bot_token")
+                chat_id = setting.get("telegram_chat_id")
+                
+                if not token or not chat_id:
+                    continue
+                    
+                key = f"{token}:{chat_id}"
+                if key not in notifications_by_telegram:
+                    notifications_by_telegram[key] = {
+                        "token": token,
+                        "chat_id": chat_id,
+                        "notifications": []
+                    }
+                
+                notifications_by_telegram[key]["notifications"].extend(notification_group["notifications"])
+            
+            # Send notifications for each Telegram configuration
+            success_count = 0
+            for key, telegram_config in notifications_by_telegram.items():
+                logger.info(f"Sending notification for {len(telegram_config['notifications'])} items to {telegram_config['chat_id']}. is_test={is_test}")
+                success = notifier.send_telegram_notification(
+                    telegram_config["token"],
+                    telegram_config["chat_id"],
+                    telegram_config["notifications"],
+                    is_test=is_test
+                )
+                if success:
+                    success_count += 1
+                    for res in telegram_config["notifications"]:
+                        db.record_notification(res["identifier"])
+            if success_count > 0:
+                return jsonify({"status": "Notifications sent", "count": total_available, "settings_checked": len(all_settings)})
             else:
                 return jsonify({"status": "Failed to send notifications"}), 500
-        
-        return jsonify({"status": "No new availability found", "count": 0})
+        return jsonify({"status": "No new availability found", "count": 0, "settings_checked": len(all_settings)})
     except Exception as e:
         logger.exception("Error in /api/check")
         return jsonify({"error": str(e)}), 500

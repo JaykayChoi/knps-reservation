@@ -16,36 +16,119 @@ def get_supabase() -> Client:
             _supabase = create_client(url, key)
     return _supabase
 
-def get_settings():
-    """Retrieve settings for user 1. Create default if not exists."""
+def get_settings(setting_id=None):
+    """Retrieve settings. If setting_id is None, returns all active settings."""
     client = get_supabase()
     if not client:
-        return {}
-    response = client.table("user_settings").select("*").eq("id", 1).execute()
-    if not response.data:
-        # Create default row if missing (Include all 6 PRD items)
-        default_settings = {
-            "id": 1,
-            "weeks_ahead": 8,
-            "selected_days": ["Fri", "Sat", "Sun"],
-            "start_date": None,
-            "end_date": None,
-            "selected_types": ["특화야영장", "카라반", "자동차야영장"],
-            "selected_parks": [],
-            "cooldown_days": 3,
-            "telegram_bot_token": "",
-            "telegram_chat_id": ""
-        }
-        client.table("user_settings").insert(default_settings).execute()
-        return default_settings
-    return response.data[0]
+        return {} if setting_id else []
+    
+    if setting_id:
+        response = client.table("user_settings").select("*").eq("id", setting_id).execute()
+        if not response.data:
+            return {}
+        return response.data[0]
+    else:
+        # For backward compatibility, if is_active column doesn't exist, return all settings
+        try:
+            response = client.table("user_settings").select("*").eq("is_active", True).order("created_at").execute()
+            return response.data
+        except Exception as e:
+            # If column doesn't exist, return all settings
+            if "is_active" in str(e):
+                response = client.table("user_settings").select("*").order("id").execute()
+                return response.data
+            raise
 
-def update_settings(settings):
+def get_all_settings():
+    """Retrieve all settings including inactive ones."""
+    client = get_supabase()
+    if not client:
+        return []
+    try:
+        response = client.table("user_settings").select("*").order("created_at").execute()
+        return response.data
+    except Exception as e:
+        # If created_at column doesn't exist, order by id
+        if "created_at" in str(e):
+            response = client.table("user_settings").select("*").order("id").execute()
+            return response.data
+        raise
+
+def create_settings(settings):
+    """Create a new settings row."""
+    client = get_supabase()
+    if not client:
+        return None
+    
+    # Check if we already have 10 settings (max limit)
+    response = client.table("user_settings").select("id").execute()
+    if len(response.data) >= 10:
+        raise ValueError("Maximum of 10 settings reached")
+    
+    # Set default values
+    default_settings = {
+        "weeks_ahead": 8,
+        "selected_days": ["Fri", "Sat", "Sun"],
+        "start_date": None,
+        "end_date": None,
+        "selected_types": ["특화야영장", "카라반", "자동차야영장"],
+        "selected_parks": [],
+        "cooldown_days": 3,
+        "telegram_bot_token": "",
+        "telegram_chat_id": ""
+    }
+    
+    # Only add new columns if they exist in schema
+    # For backward compatibility with old schema
+    extra_fields = {
+        "name": "New Settings",
+        "date_mode": "weekday",
+        "is_active": True
+    }
+    
+    # Merge with provided settings
+    merged_settings = {**default_settings, **settings}
+    # Try to add extra fields, but they might fail if columns don't exist
+    for key, value in extra_fields.items():
+        if key not in merged_settings:
+            merged_settings[key] = value
+    try:
+        response = client.table("user_settings").insert(merged_settings).execute()
+        if response.data:
+            return response.data[0]
+        return None
+    except Exception as e:
+        # If new columns don't exist, try without them
+        if any(col in str(e) for col in ["name", "date_mode", "is_active", "created_at", "updated_at"]):
+            # Remove new columns and try again
+            for col in ["name", "date_mode", "is_active", "created_at", "updated_at"]:
+                merged_settings.pop(col, None)
+            response = client.table("user_settings").insert(merged_settings).execute()
+            if response.data:
+                return response.data[0]
+        raise
+
+def update_settings(settings, setting_id=None):
     client = get_supabase()
     if not client:
         return
-    # Upsert settings for user 1
-    client.table("user_settings").upsert({"id": 1, **settings}).execute()
+    # If setting_id is provided, update specific setting
+    if setting_id:
+        client.table("user_settings").update(settings).eq("id", setting_id).execute()
+    else:
+        # For backward compatibility, update first active setting or first setting
+        try:
+            response = client.table("user_settings").select("id").eq("is_active", True).order("created_at").limit(1).execute()
+            if response.data:
+                client.table("user_settings").update(settings).eq("id", response.data[0]["id"]).execute()
+        except Exception as e:
+            # If is_active column doesn't exist, update first setting
+            if "is_active" in str(e):
+                response = client.table("user_settings").select("id").order("id").limit(1).execute()
+                if response.data:
+                    client.table("user_settings").update(settings).eq("id", response.data[0]["id"]).execute()
+            else:
+                raise
 
 def check_cooldown(identifier, cooldown_days):
     client = get_supabase()

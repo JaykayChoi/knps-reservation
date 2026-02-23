@@ -19,3 +19,8 @@ supabase/.temp/
 
 # Node.js
 node_modules/
+
+# Windows-specific
+nul
+NUL
+test_server.py
