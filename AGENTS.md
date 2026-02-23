@@ -33,9 +33,11 @@ knps-reservation/
 - **Filters**: NEVER hardcode park names or facility types. Always pull from DB settings.
 - **Cooldown**: Respect the `cooldown_days` setting to prevent notification spam.
 
-## GIT & RECORDING POLICY
-- **Git Commit**: NEVER run `git commit` unless the user explicitly requests it.
-- **Recording**: When the user says "record this" (기록해줘), you MUST update this `AGENTS.md` file (or relevant 지식 베이스 files) immediately to preserve context for future sessions.
+## GIT POLICY
+ **Git Commit**: NEVER run `git commit` unless the user explicitly requests it.
+ **Git Push**: NEVER run `git push` unless the user explicitly requests it.
+ **Git Operations**: All git operations (commit, push, merge, etc.) require explicit user permission.
+ **Recording**: When the user says "record this" (기록해줘), you MUST update this `AGENTS.md` file (or relevant 지식 베이스 files) immediately to preserve context for future sessions.
 
 ## ANTI-PATTERNS
 - **DO NOT** hardcode secrets (tokens, keys). Use environment variables.
