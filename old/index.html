@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>예약 가능한 특화야영장/카라반</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <style>
+    :root {
+      --gap: 1rem;
+      --card-radius: 10px;
+      --touch-size: 20px;
+      --checkbox-scale: 1.15;
+      --text-muted: #666;
+      --border: #ccc;
+    }
+
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 1rem; }
+    h1 { margin: 0 0 0.75rem; }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: var(--gap);
+      align-items: start;
+      margin-bottom: 0.75rem;
+    }
+    @media (max-width: 640px) {
+      .controls { grid-template-columns: 1fr; }
+    }
+
+    .check-wrap { display: grid; gap: 0.6rem; }
+    .group-title { font-weight: 600; margin-bottom: -0.2rem; }
+    .row { display:flex; flex-wrap:wrap; gap: 0.6rem 1rem; align-items:center; }
+
+    .check-group { display: flex; flex-wrap: wrap; gap: 0.8rem 1.2rem; }
+
+    .check {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-height: var(--touch-size);
+      padding: 0.2rem 0.3rem;
+      border-radius: 8px;
+    }
+    .check input[type="checkbox"] {
+      width: var(--touch-size);
+      height: var(--touch-size);
+      transform: scale(var(--checkbox-scale));
+      transform-origin: left center;
+      accent-color: #2c7be5;
+    }
+    .check span { font-size: 1.05rem; }
+
+    .select {
+      display:flex; align-items:center; gap:0.5rem;
+      font-size: 1rem;
+    }
+    .select select, .select input[type="date"] {
+      font-size: 1rem;
+      padding: 0.4rem 0.6rem;
+      border: 1px solid #aaa;
+      border-radius: 8px;
+      background:#fff;
+    }
+
+    button.refresh {
+      justify-self: start;
+      padding: 0.6rem 1rem;
+      border: 1px solid #aaa;
+      border-radius: 10px;
+      background: #f7f7f7;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    button.refresh:active { transform: translateY(1px); }
+    button.refresh:hover { background: #f0f0f0; }
+
+    .muted { color: var(--text-muted); font-size: 0.95rem; }
+
+    .item {
+      margin-bottom: 1em;
+      padding: 0.75em;
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      background: #fff;
+    }
+    .date-label { font-weight: bold; margin: 1.5em 0 0.6em; font-size: 1.15em; }
+
+    .footer-link { margin-top: 2rem; text-align: center; font-size: 1.05em; }
+    .footer-link a { text-decoration: none; font-weight: bold; color: #2c3e50; }
+    .footer-link a:hover { text-decoration: underline; }
+
+    .hint { font-size: 0.9rem; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>예약 가능한 특화야영장/카라반</h1>
+
+  <div class="controls">
+    <div class="check-wrap">
+      <div class="group-title">요일</div>
+      <div class="check-group" id="days-group">
+        <label class="check"><input type="checkbox" class="day-check" value="4" /><span>금요일</span></label>
+        <label class="check"><input type="checkbox" class="day-check" value="5" /><span>토요일</span></label>
+        <label class="check"><input type="checkbox" class="day-check" value="6" /><span>일요일</span></label>
+      </div>
+
+      <div class="group-title" style="margin-top:0.4rem;">시설</div>
+      <div class="check-group" id="types-group">
+        <label class="check"><input type="checkbox" class="type-check" value="특화야영장" /><span>특화야영장</span></label>
+        <label class="check"><input type="checkbox" class="type-check" value="카라반" /><span>카라반</span></label>
+        <!-- ✅ 추가: 자동차야영장 -->
+        <label class="check"><input type="checkbox" class="type-check" value="자동차야영장" /><span>자동차야영장</span></label>
+      </div>
+
+      <div class="row">
+        <div class="select">
+          <label for="weeks-select">조회 범위:</label>
+          <select id="weeks-select">
+            <option value="1">1주</option>
+            <option value="2">2주</option>
+            <option value="3">3주</option>
+            <option value="4">4주</option>
+            <option value="5">5주</option>
+            <option value="6">6주</option>
+            <option value="7">7주</option>
+            <option value="8">8주 (기본)</option>
+            <option value="9">9주</option>
+            <option value="10">10주</option>
+          </select>
+        </div>
+
+        <!-- ✅ 추가 날짜 범위 (있으면 요일+주수와 합집합으로 조회) -->
+        <div class="select">
+          <label for="start-date">시작:</label>
+          <input type="date" id="start-date" />
+          <label for="end-date">종료:</label>
+          <input type="date" id="end-date" />
+        </div>
+
+        <button id="btn-refresh" class="refresh">데이터 새로고침</button>
+      </div>
+
+      <div class="muted" id="selected-label"></div>
+      <div class="hint">※ 선택한 요일(금·토·일 등) + 지정한 기간(있다면)을 <b>합집합</b>으로 조회합니다.</div>
+    </div>
+  </div>
+
+  <div id="list"><h2>불러오는 중...</h2></div>
+
+  <div class="footer-link">
+    <a href="https://reservation.knps.or.kr/reservation/searchSimpleCampReservation.do"
+       target="_blank" rel="noopener noreferrer">
+      👉 국립공원 예약 페이지 바로가기
+    </a>
+  </div>
+
+  <script>
+    const DAY_KEY   = 'selectedDays';
+    const TYPE_KEY  = 'selectedTypes';
+    const WEEKS_KEY = 'weeksAhead';
+    const START_KEY = 'customStartDate'; // YYYY-MM-DD
+    const END_KEY   = 'customEndDate';   // YYYY-MM-DD
+
+    const DAY_LABELS = {0:'일',1:'월',2:'화',3:'수',4:'목',5:'금',6:'토'};
+    const PYWDAY_LABELS = {4:'금요일',5:'토요일',6:'일요일'};
+
+    function formatDisplayDate(yyyymmdd) {
+      const y = Number(yyyymmdd.slice(0,4));
+      const m = Number(yyyymmdd.slice(4,6));
+      const d = Number(yyyymmdd.slice(6,8));
+      const dt = new Date(y, m - 1, d);
+      const week = DAY_LABELS[dt.getDay()];
+      return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')} (${week})`;
+    }
+
+    // ----- 저장/복원 (요일) - 레거시 CSV도 허용 -----
+    function getSelectedDays() {
+      const raw = localStorage.getItem(DAY_KEY);
+      if (!raw) return [5];
+      try {
+        const val = JSON.parse(raw);
+        if (Array.isArray(val) && val.length) return val.map(Number);
+      } catch { /* ignore */ }
+      // 레거시: "4,5,6" 같은 문자열 저장값
+      const csv = String(raw).split(',').map(s=>s.trim()).filter(Boolean).map(Number);
+      return csv.length ? csv : [5];
+    }
+    function setSelectedDays(days) {
+      localStorage.setItem(DAY_KEY, JSON.stringify(days.map(Number)));
+    }
+
+    // ----- 저장/복원 (시설) - 레거시 CSV도 허용 -----
+    function getSelectedTypes() {
+      const raw = localStorage.getItem(TYPE_KEY);
+      if (!raw) return ["특화야영장","카라반","자동차야영장"];
+      try {
+        const val = JSON.parse(raw);
+        if (Array.isArray(val) && val.length) return val;
+      } catch { /* ignore */ }
+      // 레거시: "특화야영장,카라반" 같은 문자열 저장값
+      const csv = String(raw).split(',').map(s=>s.trim()).filter(Boolean);
+      return csv.length ? csv : ["특화야영장","카라반","자동차야영장"];
+    }
+    function setSelectedTypes(types) {
+      localStorage.setItem(TYPE_KEY, JSON.stringify(types));
+    }
+
+    // ----- 저장/복원 (주수) -----
+    function getWeeksAhead() {
+      const raw = localStorage.getItem(WEEKS_KEY);
+      const v = Number(raw);
+      return (Number.isInteger(v) && v>=1 && v<=10) ? v : 8;
+    }
+    function setWeeksAhead(v) {
+      localStorage.setItem(WEEKS_KEY, String(v));
+    }
+
+    // ----- 저장/복원 (날짜범위) -----
+    function getStartDate() {
+      const s = localStorage.getItem(START_KEY) || '';
+      return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
+    }
+    function setStartDate(v) {
+      if (v && /^\d{4}-\d{2}-\d{2}$/.test(v)) localStorage.setItem(START_KEY, v);
+      else localStorage.removeItem(START_KEY);
+    }
+    function getEndDate() {
+      const s = localStorage.getItem(END_KEY) || '';
+      return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
+    }
+    function setEndDate(v) {
+      if (v && /^\d{4}-\d{2}-\d{2}$/.test(v)) localStorage.setItem(END_KEY, v);
+      else localStorage.removeItem(END_KEY);
+    }
+
+    function applySelectionsToUI(days, types, weeks, startDate, endDate) {
+      document.querySelectorAll('.day-check').forEach(cb => {
+        cb.checked = days.includes(Number(cb.value));
+      });
+      document.querySelectorAll('.type-check').forEach(cb => {
+        // ✅ 버그 수정: 여분의 ')' 제거
+        cb.checked = types.includes(cb.value);
+      });
+      document.getElementById('weeks-select').value = String(weeks);
+
+      document.getElementById('start-date').value = startDate || '';
+      document.getElementById('end-date').value   = endDate || '';
+
+      const labelDays  = (days.length ? days.map(d => PYWDAY_LABELS[d]).join(', ') : '없음');
+      const labelTypes = (types.length ? types.join(', ') : '없음');
+      let labelText = `선택한 요일: ${labelDays} / 선택한 시설: ${labelTypes} / 조회 범위: ${weeks}주`;
+      if (startDate && endDate) {
+        labelText += ` / 추가 기간: ${startDate} ~ ${endDate} (합집합)`;
+      }
+      document.getElementById('selected-label').textContent = labelText;
+    }
+
+    // ✅ 항상 days/weeks/types는 보내고, start/end는 ‘있으면 추가’로 붙임
+    function buildQueryParams(days, types, weeks, startDate, endDate) {
+      const dayParam   = (days.length ? days.join(',') : '5');
+      const typeParam  = (types.length ? types.join(',') : '특화야영장,카라반,자동차야영장');
+      const weeksParam = (Number.isInteger(weeks) && weeks>=1 && weeks<=10) ? weeks : 8;
+
+      let qs = `?days=${encodeURIComponent(dayParam)}&types=${encodeURIComponent(typeParam)}&weeks=${weeksParam}`;
+      if (startDate && endDate) {
+        qs += `&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`;
+      }
+      return qs;
+    }
+
+    async function fetchAndRender() {
+      const days      = getSelectedDays();
+      const types     = getSelectedTypes();
+      const weeks     = getWeeksAhead();
+      const startDate = getStartDate();
+      const endDate   = getEndDate();
+
+      applySelectionsToUI(days, types, weeks, startDate, endDate);
+
+      const list = document.getElementById('list');
+      list.innerHTML = '<h2>불러오는 중...</h2>';
+
+      try {
+        const qs = buildQueryParams(days, types, weeks, startDate, endDate);
+        const res = await fetch(`/api/reservations${qs}`);
+        const data = await res.json();
+
+        list.innerHTML = '';
+        if (!Array.isArray(data) || data.length === 0) {
+          list.innerHTML = '<h2>예약 가능한 항목이 없습니다.</h2>';
+          return;
+        }
+
+        // 날짜별 그룹화
+        const grouped = {};
+        for (const item of data) {
+          const date = item.query_date;
+          if (!grouped[date]) grouped[date] = [];
+          grouped[date].push(item);
+        }
+
+        Object.keys(grouped).sort().forEach(date => {
+          const section = document.createElement('div');
+          const formattedDate = formatDisplayDate(date);
+          section.innerHTML = `<div class="date-label">📅 ${formattedDate}</div>`;
+
+          grouped[date].forEach(item => {
+            const div = document.createElement("div");
+            div.className = "item";
+            div.innerHTML = `
+              <strong>${item.officeNm} - ${item.deptNm} - ${item.prdCtgNm}</strong><br>
+              전체: ${item.prdIdCnt} / 예약 가능: ${item.cntN} / 완료: ${item.cntC} / 당일: ${item.cntR}
+            `;
+            section.appendChild(div);
+          });
+
+          list.appendChild(section);
+        });
+      } catch (err) {
+        console.error(err);
+        list.innerHTML = '<h2>데이터를 불러오는 데 실패했습니다.</h2>';
+      }
+    }
+
+    // 초기화
+    document.addEventListener('DOMContentLoaded', () => {
+      // 요일 체크
+      document.querySelectorAll('.day-check').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const selected = Array.from(document.querySelectorAll('.day-check'))
+            .filter(x => x.checked)
+            .map(x => Number(x.value));
+          setSelectedDays(selected.length ? selected : [5]);
+          fetchAndRender();
+        });
+      });
+
+      // 시설 체크
+      document.querySelectorAll('.type-check').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const selected = Array.from(document.querySelectorAll('.type-check'))
+            .filter(x => x.checked)
+            .map(x => x.value);
+          setSelectedTypes(selected.length ? selected : ["특화야영장","카라반","자동차야영장"]);
+          fetchAndRender();
+        });
+      });
+
+      // 주수 선택
+      document.getElementById('weeks-select').addEventListener('change', (e) => {
+        const v = Number(e.target.value);
+        const weeks = (Number.isInteger(v) && v >= 1 && v <= 10) ? v : 8;
+        setWeeksAhead(weeks);
+        fetchAndRender();
+      });
+
+      // 날짜 입력
+      const startInput = document.getElementById('start-date');
+      const endInput   = document.getElementById('end-date');
+
+      startInput.addEventListener('change', () => {
+        const v = startInput.value;
+        setStartDate(v);
+        const endVal = endInput.value;
+        if (endVal && v && endVal < v) {
+          endInput.value = '';
+          setEndDate('');
+        }
+        fetchAndRender();
+      });
+
+      endInput.addEventListener('change', () => {
+        const v = endInput.value;
+        setEndDate(v);
+        const startVal = startInput.value;
+        if (startVal && v && startVal > v) {
+          startInput.value = '';
+          setStartDate('');
+        }
+        fetchAndRender();
+      });
+
+      // 저장된 선택 반영 & 최초 로드
+      applySelectionsToUI(getSelectedDays(), getSelectedTypes(), getWeeksAhead(), getStartDate(), getEndDate());
+      fetchAndRender();
+    });
+  </script>
+</body>
+</html>

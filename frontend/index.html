@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>국립공원 예약 알림 설정</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 0.5rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 md:p-8">
+    <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
+        <h1 class="text-2xl font-bold mb-6 text-green-700 flex items-center">
+            <span class="mr-2">⛺</span> 국립공원 야영장 빈자리 알림 설정
+        </h1>
+
+        <form id="settingsForm" class="space-y-8">
+            <!-- 1. 기간 1 (요일 및 주수) -->
+            <section>
+                <h2 class="text-lg font-semibold mb-3 border-b pb-1">1. 기간 설정 (주수 및 요일)</h2>
+                <div class="flex flex-wrap gap-4 items-center mb-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">조회 범위 (주)</label>
+                        <select name="weeks" id="weeks" class="mt-1 block w-24 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
+                            <option value="1">1주</option>
+                            <option value="2">2주</option>
+                            <option value="4">4주</option>
+                            <option value="8" selected>8주</option>
+                            <option value="10">10주</option>
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">요일 선택 (다중)</label>
+                        <div class="flex flex-wrap gap-3">
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" name="days" value="4" class="rounded text-green-600 focus:ring-green-500">
+                                <span>금</span>
+                            </label>
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" name="days" value="5" checked class="rounded text-green-600 focus:ring-green-500">
+                                <span>토</span>
+                            </label>
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" name="days" value="6" class="rounded text-green-600 focus:ring-green-500">
+                                <span>일</span>
+                            </label>
+                            <label class="flex items-center space-x-2 text-gray-400">
+                                <input type="checkbox" name="days" value="0" class="rounded text-green-600 focus:ring-green-500">
+                                <span>월</span>
+                            </label>
+                            <label class="flex items-center space-x-2 text-gray-400">
+                                <input type="checkbox" name="days" value="1" class="rounded text-green-600 focus:ring-green-500">
+                                <span>화</span>
+                            </label>
+                            <label class="flex items-center space-x-2 text-gray-400">
+                                <input type="checkbox" name="days" value="2" class="rounded text-green-600 focus:ring-green-500">
+                                <span>수</span>
+                            </label>
+                            <label class="flex items-center space-x-2 text-gray-400">
+                                <input type="checkbox" name="days" value="3" class="rounded text-green-600 focus:ring-green-500">
+                                <span>목</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. 기간 2 (특정 날짜) -->
+            <section>
+                <h2 class="text-lg font-semibold mb-3 border-b pb-1">2. 특정 날짜 (추가)</h2>
+                <p class="text-xs text-gray-500 mb-2">위 요일 설정 외에 추가로 확인하고 싶은 날짜를 입력하세요 (쉼표로 구분, YYYY-MM-DD)</p>
+                <input type="text" name="specific_dates" id="specific_dates" placeholder="2026-03-01, 2026-05-05" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
+            </section>
+
+            <!-- 3. 자리 종류 -->
+            <section>
+                <h2 class="text-lg font-semibold mb-3 border-b pb-1">3. 시설 종류</h2>
+                <div class="checkbox-group">
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" name="facility_types" value="자동차야영장" checked class="rounded text-green-600 focus:ring-green-500">
+                        <span>자동차야영장</span>
+                    </label>
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" name="facility_types" value="카라반" checked class="rounded text-green-600 focus:ring-green-500">
+                        <span>카라반</span>
+                    </label>
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" name="facility_types" value="특화야영장" checked class="rounded text-green-600 focus:ring-green-500">
+                        <span>특화야영장</span>
+                    </label>
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" name="facility_types" value="자연야영장" class="rounded text-green-600 focus:ring-green-500">
+                        <span>자연야영장</span>
+                    </label>
+                </div>
+            </section>
+
+            <!-- 4. 장소 (국립공원) -->
+            <section>
+                <h2 class="text-lg font-semibold mb-3 border-b pb-1">4. 대상 국립공원</h2>
+                <div class="checkbox-group" id="park-list">
+                    <!-- JavaScript will populate this -->
+                </div>
+            </section>
+
+            <!-- 5. 쿨다운 및 알림 설정 -->
+            <section class="grid md:grid-cols-2 gap-6">
+                <div>
+                    <h2 class="text-lg font-semibold mb-3 border-b pb-1">5. 알림 쿨다운 (일)</h2>
+                    <input type="number" name="cooldown_days" id="cooldown_days" value="3" min="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
+                    <p class="text-xs text-gray-500 mt-1">동일한 자리에 대해 며칠 동안 알림을 보내지 않을지 설정합니다.</p>
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold mb-3 border-b pb-1">6. 텔레그램 설정</h2>
+                    <div class="space-y-2">
+                        <input type="password" name="telegram_bot_token" id="telegram_bot_token" placeholder="Bot Token" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 text-sm">
+                        <input type="text" name="telegram_chat_id" id="telegram_chat_id" placeholder="Chat ID" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 text-sm">
+                    </div>
+                </div>
+            </section>
+
+            <div class="pt-6 border-t flex gap-4">
+                <button type="submit" id="saveBtn" class="flex-1 bg-green-600 text-white font-bold py-3 px-6 rounded-md hover:bg-green-700 transition">
+                    설정 저장
+                </button>
+                <button type="button" id="checkNowBtn" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-md hover:bg-blue-700 transition">
+                    지금 즉시 확인
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-md shadow-lg transform translate-y-20 opacity-0 transition-all duration-300">
+        설정이 저장되었습니다.
+    </div>
+
+    <script>
+        const parks = [
+            "가야산", "경주", "계룡산", "내장산", "다도해해상", "덕유산", "무등산", 
+            "변산반도", "북한산", "소백산", "속리산", "오대산", "월악산", "월출산", 
+            "주왕산", "지리산", "치악산", "태백산", "태안해안", "한라산", "한려해상", "설악산"
+        ];
+
+        const parkListEl = document.getElementById('park-list');
+        parks.forEach(park => {
+            const label = document.createElement('label');
+            label.className = 'flex items-center space-x-2';
+            label.innerHTML = `<input type="checkbox" name="parks" value="${park}" class="rounded text-green-600 focus:ring-green-500"><span>${park}</span>`;
+            parkListEl.appendChild(label);
+        });
+
+        // Backend URL (in production this would be relative or from env)
+        const API_BASE = ""; 
+
+        async function loadSettings() {
+            try {
+                const res = await fetch(`${API_BASE}/api/settings`);
+                const data = await res.json();
+                
+                if (data.id) {
+                    // Populate Form
+                    if (data.weeks) document.getElementById('weeks').value = data.weeks;
+                    if (data.cooldown_days) document.getElementById('cooldown_days').value = data.cooldown_days;
+                    if (data.telegram_bot_token) document.getElementById('telegram_bot_token').value = data.telegram_bot_token;
+                    if (data.telegram_chat_id) document.getElementById('telegram_chat_id').value = data.telegram_chat_id;
+                    if (data.specific_dates) document.getElementById('specific_dates').value = data.specific_dates.join(', ');
+
+                    // Checkboxes
+                    const checkList = (name, values) => {
+                        const cbs = document.querySelectorAll(`input[name="${name}"]`);
+                        cbs.forEach(cb => {
+                            cb.checked = values.includes(cb.value) || values.includes(Number(cb.value));
+                        });
+                    };
+
+                    if (data.days) checkList('days', data.days);
+                    if (data.facility_types) checkList('facility_types', data.facility_types);
+                    if (data.parks) checkList('parks', data.parks);
+                }
+            } catch (err) {
+                console.error("Failed to load settings:", err);
+            }
+        }
+
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `fixed bottom-4 right-4 text-white px-6 py-3 rounded-md shadow-lg transform transition-all duration-300 ${isError ? 'bg-red-600' : 'bg-gray-800'}`;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            
+            const payload = {
+                weeks: parseInt(formData.get('weeks')),
+                cooldown_days: parseInt(formData.get('cooldown_days')),
+                telegram_bot_token: formData.get('telegram_bot_token'),
+                telegram_chat_id: formData.get('telegram_chat_id'),
+                specific_dates: formData.get('specific_dates').split(',').map(s => s.trim()).filter(Boolean),
+                days: Array.from(formData.getAll('days')).map(Number),
+                facility_types: Array.from(formData.getAll('facility_types')),
+                parks: Array.from(formData.getAll('parks'))
+            };
+
+            try {
+                const res = await fetch(`${API_BASE}/api/settings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) showToast("설정이 저장되었습니다.");
+                else showToast("저장 실패", true);
+            } catch (err) {
+                showToast("오류 발생", true);
+            }
+        });
+
+        document.getElementById('checkNowBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('checkNowBtn');
+            const originalText = btn.textContent;
+            btn.textContent = "확인 중...";
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`${API_BASE}/api/check`);
+                const data = await res.json();
+                showToast(data.status);
+            } catch (err) {
+                showToast("확인 작업 실패", true);
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        });
+
+        window.addEventListener('DOMContentLoaded', loadSettings);
+    </script>
+</body>
+</html>
