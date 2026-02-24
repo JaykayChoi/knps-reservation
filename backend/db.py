@@ -163,3 +163,75 @@ def record_notification(identifier):
         "identifier": identifier,
         "sent_at": datetime.now(timezone.utc).isoformat()
     }).execute()
+
+def delete_old_notifications(days=7):
+    """Delete notification_history records older than specified days.
+    
+    Args:
+        days: Number of days to keep (default: 7)
+    """
+    client = get_supabase()
+    if not client:
+        return
+    from datetime import datetime, timedelta, timezone
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    try:
+        client.table("notification_history") \
+            .delete() \
+            .lt("sent_at", cutoff.isoformat()) \
+            .execute()
+    except Exception as e:
+        # Log error but don't fail the operation
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to delete old notifications: {e}")
+
+def record_last_check_time():
+    """Record the current time as the last check time.
+    
+    Updates the single row in system_status table or creates it if it doesn't exist.
+    """
+    client = get_supabase()
+    if not client:
+        return
+    from datetime import datetime, timezone
+    current_time = datetime.now(timezone.utc).isoformat()
+    try:
+        # Try to update existing row
+        response = client.table("system_status") \
+            .update({"last_check_at": current_time}) \
+            .eq("id", 1) \
+            .execute()
+        # If no rows were updated, insert new row
+        if not response.data:
+            client.table("system_status").insert({
+                "id": 1,
+                "last_check_at": current_time
+            }).execute()
+    except Exception as e:
+        # Table might not exist yet, log warning
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to record last check time: {e}")
+
+def get_last_check_time():
+    """Get the last check time from the database.
+    
+    Returns:
+        datetime object or None if not found/error
+    """
+    client = get_supabase()
+    if not client:
+        return None
+    try:
+        response = client.table("system_status") \
+            .select("last_check_at") \
+            .eq("id", 1) \
+            .execute()
+        if response.data:
+            from datetime import datetime
+            # Parse ISO format string to datetime
+            return datetime.fromisoformat(response.data[0]["last_check_at"].replace("Z", "+00:00"))
+    except Exception as e:
+        # Table might not exist or other error
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to get last check time: {e}")
+    return None

@@ -3,7 +3,7 @@ Unit tests for db.py module.
 Tests all database operations with mocked Supabase client.
 """
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, call
 from datetime import datetime, timedelta, timezone
 import sys
 import os
@@ -106,7 +106,7 @@ class TestGetSettings:
             "telegram_bot_token": "test-token",
             "telegram_chat_id": "test-chat-id",
             "created_at": "2026-02-23T10:00:00Z",
-            "updated_at": "2026-02-23T10:00:00Z"
+
         }]
         
         mock_table = Mock()
@@ -557,6 +557,314 @@ class TestRecordNotification:
         db.record_notification("test_identifier")
         
         # No assertions needed - just ensuring no errors occur
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
+
+
+class TestDeleteOldNotifications:
+    """Tests for delete_old_notifications() function."""
+    
+    def test_delete_old_notifications_success(self, mocker):
+        """Test successful deletion of old notifications."""
+        # Mock dependencies
+        mock_client = Mock()
+        mock_table = Mock()
+        mock_delete = Mock()
+        mock_execute = Mock()
+        
+        mock_client.table.return_value = mock_table
+        mock_table.delete.return_value = mock_delete
+        mock_delete.lt.return_value = mock_delete
+        mock_delete.execute.return_value = mock_execute
+        
+        mocker.patch('db.get_supabase', return_value=mock_client)
+        
+        # Mock datetime for consistent testing
+        test_now = datetime(2026, 2, 24, 10, 0, 0, tzinfo=timezone.utc)
+        # Mock datetime for consistent testing - patch inside the function
+        test_now = datetime(2026, 2, 24, 10, 0, 0, tzinfo=timezone.utc)
+        # Mock datetime for consistent testing - patch the datetime module
+        datetime_patcher = mocker.patch('datetime.datetime')
+        datetime_patcher.now.return_value = test_now
+        datetime_patcher.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
+        
+        # Call the function
+        db.delete_old_notifications(7)
+        
+        # Verify the cutoff date calculation (7 days ago)
+        expected_cutoff = test_now - timedelta(days=7)
+        
+        # Verify the calls
+        mock_client.table.assert_called_once_with("notification_history")
+        mock_table.delete.assert_called_once()
+        mock_delete.lt.assert_called_once_with("sent_at", expected_cutoff.isoformat())
+        mock_delete.execute.assert_called_once()
+    
+    def test_delete_old_notifications_no_client(self, mocker):
+        """Test that deletion does nothing when no Supabase client is available."""
+        mocker.patch('db.get_supabase', return_value=None)
+        
+        # This should not raise any exception
+        db.delete_old_notifications(7)
+        
+        # No assertions needed - just ensuring no errors occur
+    
+    def test_delete_old_notifications_exception_handling(self, mocker):
+        """Test that exceptions during deletion are caught and logged."""
+        mock_client = Mock()
+        mock_table = Mock()
+        
+        # Make delete() raise an exception
+        mock_client.table.return_value = mock_table
+        mock_table.delete.side_effect = Exception("Database error")
+        
+        mocker.patch('db.get_supabase', return_value=mock_client)
+        mock_logger = mocker.patch('logging.getLogger')
+        
+        # This should not raise an exception
+        db.delete_old_notifications(7)
+        
+        # Verify warning was logged
+        mock_logger().warning.assert_called_once()
+        assert "Failed to delete old notifications" in mock_logger().warning.call_args[0][0]
+
+
+class TestRecordLastCheckTime:
+    """Tests for record_last_check_time() function."""
+    
+    def test_record_last_check_time_update_existing(self, mocker):
+        """Test updating existing row in system_status table."""
+        # Mock dependencies
+        mock_client = Mock()
+        mock_table = Mock()
+        mock_update = Mock()
+        mock_execute = Mock()
+        
+        mock_client.table.return_value = mock_table
+        mock_table.update.return_value = mock_update
+        mock_update.eq.return_value = mock_update
+        mock_update.execute.return_value = mock_execute
+        
+        # Mock response with data (indicating row was updated)
+        mock_execute.data = [{"id": 1}]
+        
+        mocker.patch('db.get_supabase', return_value=mock_client)
+        
+        # Mock datetime for consistent testing
+        test_now = datetime(2026, 2, 24, 10, 0, 0, tzinfo=timezone.utc)
+        # Mock datetime for consistent testing - patch inside the function
+        test_now = datetime(2026, 2, 24, 10, 0, 0, tzinfo=timezone.utc)
+        # Mock datetime for consistent testing - patch the datetime module
+        datetime_patcher = mocker.patch('datetime.datetime')
+        datetime_patcher.now.return_value = test_now
+        datetime_patcher.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
+        
+        # Call the function
+        db.record_last_check_time()
+        
+        # Verify the calls
+        mock_client.table.assert_called_once_with("system_status")
+        mock_table.update.assert_called_once_with({
+            "last_check_at": test_now.isoformat()
+        })
+        mock_update.eq.assert_called_once_with("id", 1)
+        mock_update.execute.assert_called_once()
+        
+        # Insert should NOT be called since update succeeded
+        mock_table.insert.assert_not_called()
+    
+    def test_record_last_check_time_insert_new(self, mocker):
+        """Test inserting new row when no existing row in system_status table."""
+        # Mock dependencies
+        mock_client = Mock()
+        mock_table = Mock()
+        mock_update = Mock()
+        mock_execute = Mock()
+        mock_insert = Mock()
+        mock_insert_execute = Mock()
+        
+        mock_client.table.return_value = mock_table
+        mock_table.update.return_value = mock_update
+        mock_update.eq.return_value = mock_update
+        mock_update.execute.return_value = mock_execute
+        mock_table.insert.return_value = mock_insert
+        mock_insert.execute.return_value = mock_insert_execute
+        
+        # Mock response with NO data (indicating no row was updated)
+        mock_execute.data = []
+        
+        mocker.patch('db.get_supabase', return_value=mock_client)
+        
+        # Mock datetime for consistent testing
+        test_now = datetime(2026, 2, 24, 10, 0, 0, tzinfo=timezone.utc)
+        # Mock datetime for consistent testing - patch inside the function
+        test_now = datetime(2026, 2, 24, 10, 0, 0, tzinfo=timezone.utc)
+        # Mock datetime for consistent testing - patch the datetime module
+        datetime_patcher = mocker.patch('datetime.datetime')
+        datetime_patcher.now.return_value = test_now
+        datetime_patcher.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
+        
+        # Call the function
+        db.record_last_check_time()
+        
+        # Verify the calls
+        assert mock_client.table.call_count == 2
+        # Check that table was called with 'system_status' twice
+        calls = mock_client.table.call_args_list
+        assert calls[0] == call('system_status')
+        assert calls[1] == call('system_status')
+        mock_table.update.assert_called_once_with({
+            "last_check_at": test_now.isoformat()
+        })
+        mock_update.eq.assert_called_once_with("id", 1)
+        mock_update.execute.assert_called_once()
+        
+        # Insert should be called since update returned no data
+        mock_table.insert.assert_called_once_with({
+            "id": 1,
+            "last_check_at": test_now.isoformat()
+        })
+        mock_insert.execute.assert_called_once()
+    
+    def test_record_last_check_time_no_client(self, mocker):
+        """Test that recording does nothing when no Supabase client is available."""
+        mocker.patch('db.get_supabase', return_value=None)
+        
+        # This should not raise any exception
+        db.record_last_check_time()
+        
+        # No assertions needed - just ensuring no errors occur
+    
+    def test_record_last_check_time_exception_handling(self, mocker):
+        """Test that exceptions during recording are caught and logged."""
+        mock_client = Mock()
+        
+        # Make table() raise an exception (simulating missing table)
+        mock_client.table.side_effect = Exception("Table not found")
+        
+        mocker.patch('db.get_supabase', return_value=mock_client)
+        mock_logger = mocker.patch('logging.getLogger')
+        
+        # This should not raise an exception
+        db.record_last_check_time()
+        
+        # Verify warning was logged
+        mock_logger().warning.assert_called_once()
+        assert "Failed to record last check time" in mock_logger().warning.call_args[0][0]
+
+
+class TestGetLastCheckTime:
+    """Tests for get_last_check_time() function."""
+    
+    def test_get_last_check_time_success(self, mocker):
+        """Test successful retrieval of last check time."""
+        # Mock dependencies
+        mock_client = Mock()
+        mock_table = Mock()
+        mock_select = Mock()
+        mock_execute = Mock()
+        
+        mock_client.table.return_value = mock_table
+        mock_table.select.return_value = mock_select
+        mock_select.eq.return_value = mock_select
+        mock_select.execute.return_value = mock_execute
+        
+        # Mock response with data
+        test_time = datetime(2026, 2, 24, 9, 30, 0, tzinfo=timezone.utc)
+        mock_execute.data = [{"last_check_at": test_time.isoformat()}]
+        
+        mocker.patch('db.get_supabase', return_value=mock_client)
+        
+        # Call the function
+        result = db.get_last_check_time()
+        
+        # Verify the calls
+        mock_client.table.assert_called_once_with("system_status")
+        mock_table.select.assert_called_once_with("last_check_at")
+        mock_select.eq.assert_called_once_with("id", 1)
+        mock_select.execute.assert_called_once()
+        
+        # Verify the result
+        assert result == test_time
+    
+    def test_get_last_check_time_no_data(self, mocker):
+        """Test retrieval when no data exists."""
+        # Mock dependencies
+        mock_client = Mock()
+        mock_table = Mock()
+        mock_select = Mock()
+        mock_execute = Mock()
+        
+        mock_client.table.return_value = mock_table
+        mock_table.select.return_value = mock_select
+        mock_select.eq.return_value = mock_select
+        mock_select.execute.return_value = mock_execute
+        
+        # Mock response with NO data
+        mock_execute.data = []
+        
+        mocker.patch('db.get_supabase', return_value=mock_client)
+        
+        # Call the function
+        result = db.get_last_check_time()
+        
+        # Verify the result is None
+        assert result is None
+    
+    def test_get_last_check_time_no_client(self, mocker):
+        """Test that retrieval returns None when no Supabase client is available."""
+        mocker.patch('db.get_supabase', return_value=None)
+        
+        result = db.get_last_check_time()
+        
+        assert result is None
+    
+    def test_get_last_check_time_exception_handling(self, mocker):
+        """Test that exceptions during retrieval are caught and logged."""
+        mock_client = Mock()
+        
+        # Make table() raise an exception (simulating missing table)
+        mock_client.table.side_effect = Exception("Table not found")
+        
+        mocker.patch('db.get_supabase', return_value=mock_client)
+        mock_logger = mocker.patch('logging.getLogger')
+        
+        # Call the function
+        result = db.get_last_check_time()
+        
+        # Verify warning was logged
+        mock_logger().warning.assert_called_once()
+        assert "Failed to get last check time" in mock_logger().warning.call_args[0][0]
+        
+        # Verify the result is None
+        assert result is None
+    
+    def test_get_last_check_time_with_z_timezone(self, mocker):
+        """Test parsing of timestamp with Z timezone."""
+        # Mock dependencies
+        mock_client = Mock()
+        mock_table = Mock()
+        mock_select = Mock()
+        mock_execute = Mock()
+        
+        mock_client.table.return_value = mock_table
+        mock_table.select.return_value = mock_select
+        mock_select.eq.return_value = mock_select
+        mock_select.execute.return_value = mock_execute
+        
+        # Mock response with Z timezone format
+        mock_execute.data = [{"last_check_at": "2026-02-24T09:30:00Z"}]
+        
+        mocker.patch('db.get_supabase', return_value=mock_client)
+        
+        # Call the function
+        result = db.get_last_check_time()
+        
+        # Verify the result was parsed correctly
+        expected = datetime(2026, 2, 24, 9, 30, 0, tzinfo=timezone.utc)
+        assert result == expected
 
 
 if __name__ == "__main__":

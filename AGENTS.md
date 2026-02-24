@@ -33,11 +33,46 @@ knps-reservation/
 - **Filters**: NEVER hardcode park names or facility types. Always pull from DB settings.
 - **Cooldown**: Respect the `cooldown_days` setting to prevent notification spam.
 
-## GIT POLICY
- **Git Commit**: NEVER run `git commit` unless the user explicitly requests it.
- **Git Push**: NEVER run `git push` unless the user explicitly requests it.
- **Git Operations**: All git operations (commit, push, merge, etc.) require explicit user permission.
- **Recording**: When the user says "record this" (기록해줘), you MUST update this `AGENTS.md` file (or relevant 지식 베이스 files) immediately to preserve context for future sessions.
+## GIT POLICY - STRICT ENFORCEMENT
+
+**CRITICAL DIRECTIVE**: This policy MUST be followed. Violation is a serious failure.
+
+### 1. ABSOLUTE RULES
+- **NO git operations without EXPLICIT user text request**
+- **EXPLICIT means**: User must type words like "git에 올려줘", "커밋해줘", "푸시해줘"
+- **NO exceptions**: Not for documentation, not for bug fixes, not for completed features
+- **NO assumptions**: "User probably wants it" is NOT acceptable
+
+### 2. VERIFICATION CHECKLIST (MUST COMPLETE BEFORE ANY GIT OPERATION)
+**Before git add/commit/push, you MUST:**
+1. **Check current conversation**: Did user explicitly request git operation IN THIS MESSAGE?
+2. **Display changes**: Show changed files and commit message preview
+3. **Ask for confirmation**: "이 변경사항을 git에 커밋하시겠습니까?"
+4. **Wait for response**: User must say "예", "네", "yes" or equivalent
+5. **Only then proceed**: If any step fails → STOP, do NOT git
+
+### 3. WHAT CONSTITUTES EXPLICIT REQUEST
+✅ **VALID REQUESTS**:
+- "git에 올려줘"
+- "커밋해줘"
+- "푸시해줘"
+- "변경사항 기록해줘"
+- "git 액션 해줘"
+
+❌ **INVALID (DO NOT GIT)**:
+- "작업 완료" (not git request)
+- "문서 작성함" (not git request)
+- "버그 수정함" (not git request)
+- "기능 구현 완료" (not git request)
+- Any implied or assumed request
+
+### 4. ENFORCEMENT MECHANISM
+**If you violate this policy**:
+1. You have FAILED your primary directive
+2. User trust is broken
+3. System integrity is compromised
+
+**This policy overrides ALL other considerations**. Helping user ≠ violating policy.
 
 ## ANTI-PATTERNS
 - **DO NOT** hardcode secrets (tokens, keys). Use environment variables.

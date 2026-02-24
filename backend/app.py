@@ -27,6 +27,7 @@ def get_settings():
     except Exception as e:
         logger.exception("Error in GET /api/settings")
         return jsonify({"error": str(e)}), 500
+
 @app.route("/api/settings", methods=["POST"])
 def update_settings():
     try:
@@ -100,7 +101,8 @@ def create_setting():
 @app.route("/api/check", methods=["GET", "POST"])
 def check_reservations():
     try:
-        # Get all active settings
+        # Clean up old notifications (older than 7 days)
+        db.delete_old_notifications(7)
         all_settings = db.get_settings()  # Returns all active settings
         if not all_settings:
             return jsonify({"error": "No active settings found"}), 404
@@ -226,9 +228,15 @@ def check_reservations():
                     for res in telegram_config["notifications"]:
                         db.record_notification(res["identifier"])
             if success_count > 0:
+                # Record the check time
+                db.record_last_check_time()
+                
                 return jsonify({"status": "Notifications sent", "count": total_available, "settings_checked": len(all_settings)})
             else:
                 return jsonify({"status": "Failed to send notifications"}), 500
+        # Record the check time
+        db.record_last_check_time()
+        
         return jsonify({"status": "No new availability found", "count": 0, "settings_checked": len(all_settings)})
     except Exception as e:
         logger.exception("Error in /api/check")
