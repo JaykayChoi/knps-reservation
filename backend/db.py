@@ -81,17 +81,17 @@ def create_settings(settings):
         "selected_parks": [],
         "cooldown_days": 3,
         "telegram_bot_token": "",
-        "telegram_chat_id": ""
+        "telegram_chat_id": "",
+        "include_waiting": True
     }
     
     # Only add new columns if they exist in schema
-    # For backward compatibility with old schema
     extra_fields = {
         "name": "New Settings",
         "date_mode": "weekday",
-        "is_active": True
+        "is_active": True,
+        "include_waiting": True
     }
-    
     # Merge with provided settings
     merged_settings = {**default_settings, **settings}
     # Try to add extra fields, but they might fail if columns don't exist
@@ -109,14 +109,13 @@ def create_settings(settings):
         return None
     except Exception as e:
         # If new columns don't exist, try without them
-        if any(col in str(e) for col in ["name", "date_mode", "is_active", "created_at", "updated_at"]):
+        if any(col in str(e) for col in ["name", "date_mode", "is_active", "include_waiting", "created_at", "updated_at"]):
             # Remove new columns and try again
-            for col in ["name", "date_mode", "is_active", "created_at", "updated_at"]:
+            for col in ["name", "date_mode", "is_active", "include_waiting", "created_at", "updated_at"]:
                 merged_settings.pop(col, None)
             response = client.table("user_settings").insert(merged_settings).execute()
             if response.data:
                 return response.data[0]
-        raise
 
 def update_settings(settings, setting_id=None):
     client = get_supabase()
@@ -140,29 +139,37 @@ def update_settings(settings, setting_id=None):
             else:
                 raise
 
-def check_cooldown(identifier, cooldown_days):
+def check_cooldown(identifier, setting_id, cooldown_days):
     client = get_supabase()
     if not client:
         return False
-    # Check if this identifier was sent within the last N days
+    # Check if this identifier was sent for THIS setting within the last N days
     from datetime import datetime, timedelta
     cutoff = datetime.now() - timedelta(days=cooldown_days)
-    response = client.table("notification_history") \
+    query = client.table("notification_history") \
         .select("id") \
         .eq("identifier", identifier) \
-        .gt("sent_at", cutoff.isoformat()) \
-        .execute()
+        .gt("sent_at", cutoff.isoformat())
+    
+    if setting_id:
+        query = query.eq("setting_id", setting_id)
+        
+    response = query.execute()
     return len(response.data) > 0
 
-def record_notification(identifier):
+def record_notification(identifier, setting_id):
     client = get_supabase()
     if not client:
         return
     from datetime import datetime, timezone
-    client.table("notification_history").insert({
+    data = {
         "identifier": identifier,
         "sent_at": datetime.now(timezone.utc).isoformat()
-    }).execute()
+    }
+    if setting_id:
+        data["setting_id"] = setting_id
+        
+    client.table("notification_history").insert(data).execute()
 
 def delete_old_notifications(days=7):
     """Delete notification_history records older than specified days.
@@ -235,3 +242,19 @@ def get_last_check_time():
         import logging
         logging.getLogger(__name__).warning(f"Failed to get last check time: {e}")
     return None
+def delete_history_by_setting(setting_id):
+    """Delete all notification history for a specific setting ID."""
+    client = get_supabase()
+    if not client:
+        return False
+    try:
+        client.table("notification_history") \
+            .delete() \
+            .eq("setting_id", setting_id) \
+            .execute()
+        return True
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Failed to delete history for setting {setting_id}: {e}")
+        return False
+

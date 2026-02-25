@@ -50,13 +50,16 @@ def fetch_reservations(dates, facility_types, parks):
                     continue
 
                 # Filter by availability
-                if (item.get("cntN") or 0) > 0:
+                cnt_n = item.get("cntN") or 0
+                cnt_w = item.get("cntW") or 0
+                if cnt_n > 0 or cnt_w > 0:
                     results.append({
                         "date": date,
                         "park_name": item.get("officeNm"),
                         "campsite_name": item.get("deptNm"),
                         "facility_type": item.get("prdCtgNm"),
-                        "available_count": item.get("cntN"),
+                        "available_count": cnt_n,
+                        "waiting_count": cnt_w,
                         "identifier": f"{date}_{item.get('officeNm')}_{item.get('prdCtgNm')}"
                     })
         except Exception as e:

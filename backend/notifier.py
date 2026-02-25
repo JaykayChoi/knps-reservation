@@ -23,7 +23,13 @@ def send_telegram_notification(token, chat_id, reservations, is_test=False):
             date_str = f"{res['date'][:4]}-{res['date'][4:6]}-{res['date'][6:8]}"
             message += f"📅 *{date_str}*\n"
             message += f"📍 {res['park_name']} ({res['campsite_name']})\n"
-            message += f"⛺ {res['facility_type']} - {res['available_count']}개\n"
+            status_parts = []
+            if res.get('available_count', 0) > 0:
+                status_parts.append(f"예약 {res['available_count']}")
+            if res.get('waiting_count', 0) > 0:
+                status_parts.append(f"대기 {res['waiting_count']}")
+            status_str = " / ".join(status_parts) if status_parts else "만석"
+            message += f"⛺ {res['facility_type']} - {status_str}\n"
             message += "-------------------\n"
         
         message += "\n[지금 예약하기](https://reservation.knps.or.kr)"

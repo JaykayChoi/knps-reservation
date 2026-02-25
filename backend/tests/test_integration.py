@@ -39,6 +39,7 @@ def test_update_settings_success(client):
         "cooldown_days": 1,
         "telegram_bot_token": "test_token",
         "telegram_chat_id": "test_chat_id",
+        "include_waiting": True,
         "selected_days": ["Fri", "Sat"],
         "selected_types": ["카라반"],
         "selected_parks": ["덕유산"]
@@ -56,7 +57,8 @@ def test_telegram_test_notification(telegram_config):
         'park_name': '테스트공원',
         'campsite_name': '테스트야영장',
         'facility_type': '테스트시설',
-        'available_count': 1
+        'available_count': 1,
+        'waiting_count': 0
     }]
     success = notifier.send_telegram_notification(
         telegram_config['token'],

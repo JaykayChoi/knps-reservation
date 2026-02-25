@@ -98,6 +98,18 @@ def create_setting():
         logger.exception("Error in PUT /api/settings")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/settings/<int:setting_id>/history", methods=["DELETE"])
+def delete_setting_history(setting_id):
+    try:
+        success = db.delete_history_by_setting(setting_id)
+        if success:
+            return jsonify({"success": True})
+        else:
+            return jsonify({"error": "Failed to delete history"}), 500
+    except Exception as e:
+        logger.exception(f"Error in DELETE /api/settings/{setting_id}/history")
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/check", methods=["GET", "POST"])
 def check_reservations():
     try:
@@ -176,11 +188,16 @@ def check_reservations():
                 settings.get("selected_types", []), 
                 settings.get("selected_parks", [])
             )
-            # 3. Filter by cooldown
+            # 3. Filter by availability and user preference
             to_notify = []
             cooldown_days = settings.get("cooldown_days", 3)
+            include_waiting = settings.get("include_waiting", True)
             for res in available:
-                if not db.check_cooldown(res["identifier"], cooldown_days):
+                # Filter out waiting list if user doesn't want it
+                if not include_waiting and res.get("available_count", 0) == 0:
+                    continue
+                    
+                if not db.check_cooldown(res["identifier"], settings.get("id"), cooldown_days):
                     to_notify.append(res)
             if to_notify:
                 all_notifications.append({
@@ -226,7 +243,7 @@ def check_reservations():
                 if success:
                     success_count += 1
                     for res in telegram_config["notifications"]:
-                        db.record_notification(res["identifier"])
+                        db.record_notification(res["identifier"], s_id)
             if success_count > 0:
                 # Record the check time
                 db.record_last_check_time()

@@ -18,7 +18,8 @@ def test_send_telegram_notification_test_prefix(mock_post):
         "park_name": "덕유산",
         "campsite_name": "덕유산야영장",
         "facility_type": "카라반",
-        "available_count": 2
+        "available_count": 2,
+        "waiting_count": 1
     }]
     
     # Test with is_test=True
@@ -30,6 +31,8 @@ def test_send_telegram_notification_test_prefix(mock_post):
     assert "[TEST]" in message
     assert "덕유산" in message
     assert "2026-03-01" in message
+    assert "예약 2" in message
+    assert "대기 1" in message
 
 @patch('requests.post')
 def test_send_telegram_notification_no_prefix(mock_post):
@@ -39,7 +42,7 @@ def test_send_telegram_notification_no_prefix(mock_post):
     
     token = "test_token"
     chat_id = "test_id"
-    reservations = [{"date": "20260301", "park_name": "덕유산", "campsite_name": "X", "facility_type": "Y", "available_count": 1}]
+    reservations = [{"date": "20260301", "park_name": "덕유산", "campsite_name": "X", "facility_type": "Y", "available_count": 1, "waiting_count": 0}]
     
     # Test with is_test=False (default)
     send_telegram_notification(token, chat_id, reservations, is_test=False)
