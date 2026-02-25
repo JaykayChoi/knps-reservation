@@ -90,6 +90,7 @@ python app.py
 ## NOTES
 - The KNPS API uses `EUC-KR` or `UTF-8` depending on the endpoint; ensure proper encoding in `scraper.py`.
 - Notifications are keyed by `YYYYMMDD_ParkName_FacilityType` to track uniqueness.
+93: 93#NM|- Telegram notifications are split into chunks of 30 items to comply with message size limits.
 
 ## LOCAL DEVELOPMENT & TESTING
 - **Local DB**: Supabase CLI is initialized and running via Docker (URL: http://127.0.0.1:54321).
@@ -125,6 +126,15 @@ python app.py
  **Quality Assurance**: Updated full database test suite and verified all 34 tests passing with the new schema.
  **Supabase Integration**: Applied production schema changes directly via Supabase MCP and updated source migrations for future-proofing.
  **Git Deployment**: Committed and pushed all refactoring changes to the master branch.
+128: 128#HP|
+129: 129#HY|## SESSION ACCOMPLISHMENTS (2026-02-26)
+130: 130#JT| **New Feature**: Added support for waiting list notifications in `scraper.py`, expanding monitoring beyond immediate availability.
+131: 131#KB| **Notification Optimization**: Implemented Telegram message chunking (30 items per message) to prevent API payload limits and improve readability.
+132: 132#SN| **Per-Setting History**: Refactored notification history to be managed per user setting, enabling granular cooldowns and more accurate tracking.
+133: 133#MV| **Database Refactoring**: Optimized `notification_history` schema by removing redundant identifier columns and streamlining the data model.
+134: 134#JH| **Stability & QA**: Resolved critical `ReferenceError` in frontend Edit handlers and added comprehensive Playwright tests to prevent regression. Verified deployment stability on Render.
+#JH| **New Feature**: Added "Clear All History" button to the main dashboard, allowing users to reset all notification cooldowns globally.
+#JT| **API Expansion**: Implemented `DELETE /api/history` endpoint and corresponding `db.delete_all_history()` logic.
 
 
 ## WINDOWS-SPECIFIC GOTCHAS

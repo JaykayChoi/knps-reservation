@@ -113,6 +113,18 @@ def delete_setting_history(setting_id):
     except Exception as e:
         logger.exception(f"Error in DELETE /api/settings/{setting_id}/history")
         return jsonify({"error": str(e)}), 500
+#YZ|@app.route("/api/history", methods=["DELETE"])
+#BN|def delete_all_history():
+#BJ|    try:
+#MY|        success = db.delete_all_history()
+#QB|        if success:
+#VM|            return jsonify({"success": True})
+#ZR|        else:
+#BN|            return jsonify({"error": "Failed to delete all history"}), 500
+#SB|    except Exception as e:
+#ST|        logger.exception("Error in DELETE /api/history")
+#YV|        return jsonify({"error": str(e)}), 500
+#BK|
 
 @app.route("/api/check", methods=["GET", "POST"])
 def check_reservations():

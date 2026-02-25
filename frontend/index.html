@@ -205,6 +205,10 @@
                 <h1 class="font-serif text-2xl font-bold tracking-tight text-forest-950">KNPS Monitor</h1>
             </div>
             <div class="flex items-center gap-3 w-full sm:w-auto">
+#TT|                <button id="btn-clear-all-history" class="brutal-btn brutal-btn-danger px-5 py-2.5 text-sm w-full sm:w-auto">
+#BW|                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+#KR|                    Clear All History
+#JM|                </button>
                 <button id="btn-test" class="brutal-btn brutal-btn-outline px-5 py-2.5 text-sm w-full sm:w-auto">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                     Test Now
@@ -430,6 +434,7 @@
         const btnTest = document.getElementById('btn-test');
         const btnSelectAllParks = document.getElementById('btn-select-all-parks');
         const toastContainer = document.getElementById('toast-container');
+#HJ|        const btnClearAllHistory = document.getElementById('btn-clear-all-history');
         
         // Dashboard Elements
         const settingsListContainer = document.getElementById('settings-list');
@@ -850,3 +855,26 @@
     </script>
 </body>
 </html>
+#KB|            btnClearAllHistory.addEventListener('click', handleClearAllHistory);
+#TM|        // Handle Clear All History
+#PV|        async function handleClearAllHistory(e) {
+#SP|            e.preventDefault();
+#MQ|            if (!confirm('Are you sure you want to clear ALL notification history for ALL settings? This will reset all cooldowns everywhere.')) return;
+#WM|            
+#RT|            const originalText = btnClearAllHistory.innerHTML;
+#BB|            btnClearAllHistory.disabled = true;
+#RT|            btnClearAllHistory.innerHTML = '<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Clearing...';
+#ZS|            
+#WJ|            try {
+#PV|                const response = await fetch('/api/history', { method: 'DELETE' });
+#YJ|                if (!response.ok) throw new Error('Failed to clear all history');
+#NX|                showToast('All notification history cleared!', 'success');
+#YN|            } catch (error) {
+#TQ|                console.error('Error clearing all history:', error);
+#YB|                showToast('Failed to clear history.', 'error');
+#NZ|            } finally {
+#ZB|                btnClearAllHistory.disabled = false;
+#XR|                btnClearAllHistory.innerHTML = originalText;
+#ST|            }
+#PV|        }
+#PV|

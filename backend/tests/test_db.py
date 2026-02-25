@@ -588,6 +588,48 @@ class TestDeleteOldNotifications:
         mock_logger().warning.assert_called_once()
         assert "Failed to delete old notifications" in mock_logger().warning.call_args[0][0]
 
+#HH|class TestDeleteHistoryBySetting:
+#PB|    """Tests for delete_history_by_setting() function."""
+#BM|    
+#TY|    def test_delete_history_by_setting_success(self, mocker):
+#VP|        """Test successful deletion of history for a specific setting."""
+#WS|        mock_client = Mock()
+#ST|        mock_table = Mock()
+#NN|        mock_delete = Mock()
+#KY|        mock_execute = Mock()
+#YH|        
+#MB|        mock_client.table.return_value = mock_table
+#QQ|        mock_table.delete.return_value = mock_delete
+#MT|        mock_delete.eq.return_value = mock_delete
+#BX|        mock_delete.execute.return_value = mock_execute
+#KZ|        
+#VK|        mocker.patch('db.get_supabase', return_value=mock_client)
+#YZ|        db.delete_history_by_setting(1)
+#ST|        mock_table.delete.assert_called_once()
+#HW|        mock_delete.eq.assert_called_once_with("setting_id", 1)
+#NM|        mock_delete.execute.assert_called_once()
+#SZ|
+#HH|class TestDeleteAllHistory:
+#PB|    """Tests for delete_all_history() function."""
+#BM|    
+#TY|    def test_delete_all_history_success(self, mocker):
+#VP|        """Test successful deletion of all notification history."""
+#WS|        mock_client = Mock()
+#ST|        mock_table = Mock()
+#NN|        mock_delete = Mock()
+#KY|        mock_execute = Mock()
+#YH|        
+#MB|        mock_client.table.return_value = mock_table
+#QQ|        mock_table.delete.return_value = mock_delete
+#MT|        mock_delete.neq.return_value = mock_delete
+#BX|        mock_delete.execute.return_value = mock_execute
+#KZ|        
+#VK|        mocker.patch('db.get_supabase', return_value=mock_client)
+#YZ|        db.delete_all_history()
+#ST|        mock_table.delete.assert_called_once()
+#HW|        mock_delete.neq.assert_called_once_with("id", -1)
+#NM|        mock_delete.execute.assert_called_once()
+#BZ|
 
 class TestRecordLastCheckTime:
     """Tests for record_last_check_time() function."""
