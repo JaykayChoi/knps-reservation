@@ -108,15 +108,14 @@ def create_settings(settings):
             return response.data[0]
         return None
     except Exception as e:
-        # If new columns don't exist, try without them
-        if any(col in str(e) for col in ["name", "date_mode", "is_active", "include_waiting", "created_at", "updated_at"]):
-            # Remove new columns and try again
+        error_str = str(e)
+        if any(col in error_str for col in ["name", "date_mode", "is_active", "include_waiting", "created_at", "updated_at"]):
             for col in ["name", "date_mode", "is_active", "include_waiting", "created_at", "updated_at"]:
                 merged_settings.pop(col, None)
             response = client.table("user_settings").insert(merged_settings).execute()
             if response.data:
                 return response.data[0]
-
+        raise
 def update_settings(settings, setting_id=None):
     client = get_supabase()
     if not client:

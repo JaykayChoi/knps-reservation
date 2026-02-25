@@ -18,6 +18,10 @@ CORS(app)
 @app.route("/")
 def serve_index():
     return app.send_static_file("index.html")
+@app.route("/api/health")
+def health_check():
+    return jsonify({"status": "healthy"}), 200
+
 
 @app.route("/api/settings", methods=["GET"])
 def get_settings():
@@ -243,6 +247,12 @@ def check_reservations():
                 if success:
                     success_count += 1
                     for res in telegram_config["notifications"]:
+                        # Find the setting_id for this notification to record it correctly
+                        s_id = None
+                        for group in all_notifications:
+                            if any(n["identifier"] == res["identifier"] for n in group["notifications"]):
+                                s_id = group["setting_id"]
+                                break
                         db.record_notification(res["identifier"], s_id)
             if success_count > 0:
                 # Record the check time
