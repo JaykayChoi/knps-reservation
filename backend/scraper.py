@@ -59,8 +59,7 @@ def fetch_reservations(dates, facility_types, parks):
                         "campsite_name": item.get("deptNm"),
                         "facility_type": item.get("prdCtgNm"),
                         "available_count": cnt_n,
-                        "waiting_count": cnt_w,
-                        "identifier": f"{date}_{item.get('officeNm')}_{item.get('prdCtgNm')}"
+                        "waiting_count": cnt_w
                     })
         except Exception as e:
             print(f"Error fetching {date}: {e}")

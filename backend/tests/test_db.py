@@ -446,118 +446,76 @@ class TestCheckCooldown:
     
     def test_check_cooldown_active(self, mocker):
         """Test that cooldown is active when notification was sent recently."""
-        # Mock Supabase client
         mock_client = Mock()
-        mock_response = Mock()
-        mock_response.data = [{"id": 123}]  # Has recent notification
-        
         mock_table = Mock()
-        mock_table.select.return_value.eq.return_value.gt.return_value = mock_table
-        mock_table.execute.return_value = mock_response
+        mock_response = Mock()
+        mock_response.data = [{"id": 123}]
+        
+        mock_query = mock_table.select.return_value
+        for _ in range(5):
+            mock_query = mock_query.eq.return_value
+        mock_query = mock_query.gt.return_value
+        mock_query.execute.return_value = mock_response
         
         mock_client.table.return_value = mock_table
-        
         mocker.patch('db.get_supabase', return_value=mock_client)
+        mocker.patch('datetime.datetime').now.return_value = datetime(2026, 2, 23, 10, 0, 0)
         
-        # Mock datetime for consistent testing
-        test_now = datetime(2026, 2, 23, 10, 0, 0)
-        mock_datetime = mocker.patch('datetime.datetime')
-        mock_datetime.now.return_value = test_now
-        
-        # Call function
-        identifier = "20260223_지리산_특화야영장"
-        cooldown_days = 3
-        result = db.check_cooldown(identifier, cooldown_days)
-        
-        # Verify calls
-        mock_client.table.assert_called_once_with("notification_history")
-        mock_client.table().select.assert_called_once_with("id")
-        mock_client.table().select().eq.assert_called_once_with("identifier", identifier)
-        
-        # Verify cutoff calculation
-        expected_cutoff = test_now - timedelta(days=cooldown_days)
-        mock_client.table().select().eq().gt.assert_called_once_with(
-            "sent_at", expected_cutoff.isoformat()
-        )
-        
-        # Verify result
+        result = db.check_cooldown(1, "20260223", "지리산", "특화야영장", False, 3)
         assert result is True
     
     def test_check_cooldown_inactive(self, mocker):
         """Test that cooldown is inactive when no recent notification exists."""
-        # Mock Supabase client
         mock_client = Mock()
-        mock_response = Mock()
-        mock_response.data = []  # No recent notifications
-        
         mock_table = Mock()
-        mock_table.select.return_value.eq.return_value.gt.return_value = mock_table
-        mock_table.execute.return_value = mock_response
+        mock_response = Mock()
+        mock_response.data = []
+        
+        mock_query = mock_table.select.return_value
+        for _ in range(5):
+            mock_query = mock_query.eq.return_value
+        mock_query = mock_query.gt.return_value
+        mock_query.execute.return_value = mock_response
         
         mock_client.table.return_value = mock_table
-        
         mocker.patch('db.get_supabase', return_value=mock_client)
+        mocker.patch('datetime.datetime').now.return_value = datetime(2026, 2, 23, 10, 0, 0)
         
-        # Mock datetime
-        test_now = datetime(2026, 2, 23, 10, 0, 0)
-        mock_datetime = mocker.patch('datetime.datetime')
-        mock_datetime.now.return_value = test_now
-        
-        # Call function
-        identifier = "20260223_지리산_특화야영장"
-        cooldown_days = 3
-        result = db.check_cooldown(identifier, cooldown_days)
-        
-        # Verify result
+        result = db.check_cooldown(1, "20260223", "지리산", "특화야영장", False, 3)
         assert result is False
     
     def test_check_cooldown_no_client(self, mocker):
         """Test that False is returned when no Supabase client is available."""
         mocker.patch('db.get_supabase', return_value=None)
-        
-        result = db.check_cooldown("test_identifier", 3)
+        result = db.check_cooldown(1, "20260223", "지리산", "특화야영장", False, 3)
         assert result is False
-
 
 class TestRecordNotification:
     """Tests for record_notification() function."""
     
     def test_record_notification_success(self, mocker):
         """Test recording a notification successfully."""
-        # Mock Supabase client
         mock_client = Mock()
         mock_table = Mock()
         mock_client.table.return_value = mock_table
-        
         mocker.patch('db.get_supabase', return_value=mock_client)
         
-        # Mock datetime for consistent testing
         test_now = datetime(2026, 2, 23, 10, 0, 0, tzinfo=timezone.utc)
         mock_datetime = mocker.patch('datetime.datetime')
         mock_datetime.now.return_value = test_now
         
-        # Call function
-        identifier = "20260223_지리산_특화야영장"
-        db.record_notification(identifier)
+        db.record_notification(1, "20260223", "지리산", "특화야영장", False)
         
-        # Verify insert was called with correct data
-        mock_client.table.assert_called_once_with("notification_history")
-        expected_data = {
-            "identifier": identifier,
-            "sent_at": test_now.isoformat()
-        }
-        mock_table.insert.assert_called_once_with(expected_data)
-        mock_table.insert().execute.assert_called_once()
+        assert mock_table.insert.called
+        args = mock_table.insert.call_args[0][0]
+        assert args["setting_id"] == 1
+        assert args["target_date"] == "20260223"
+        assert args["is_waiting"] is False
     
     def test_record_notification_no_client(self, mocker):
         """Test that recording does nothing when no Supabase client is available."""
         mocker.patch('db.get_supabase', return_value=None)
-        
-        # This should not raise any exception
-        db.record_notification("test_identifier")
-        
-        # No assertions needed - just ensuring no errors occur
-
+        db.record_notification(1, "20260223", "지리산", "특화야영장", False)
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

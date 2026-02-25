@@ -138,36 +138,39 @@ def update_settings(settings, setting_id=None):
             else:
                 raise
 
-def check_cooldown(identifier, setting_id, cooldown_days):
+def check_cooldown(setting_id, target_date, park_name, facility_type, is_waiting, cooldown_days):
     client = get_supabase()
     if not client:
         return False
-    # Check if this identifier was sent for THIS setting within the last N days
+    
     from datetime import datetime, timedelta
     cutoff = datetime.now() - timedelta(days=cooldown_days)
+    
     query = client.table("notification_history") \
         .select("id") \
-        .eq("identifier", identifier) \
+        .eq("setting_id", setting_id) \
+        .eq("target_date", target_date) \
+        .eq("park_name", park_name) \
+        .eq("facility_type", facility_type) \
+        .eq("is_waiting", is_waiting) \
         .gt("sent_at", cutoff.isoformat())
     
-    if setting_id:
-        query = query.eq("setting_id", setting_id)
-        
     response = query.execute()
     return len(response.data) > 0
 
-def record_notification(identifier, setting_id):
+def record_notification(setting_id, target_date, park_name, facility_type, is_waiting):
     client = get_supabase()
     if not client:
         return
     from datetime import datetime, timezone
     data = {
-        "identifier": identifier,
+        "setting_id": setting_id,
+        "target_date": target_date,
+        "park_name": park_name,
+        "facility_type": facility_type,
+        "is_waiting": is_waiting,
         "sent_at": datetime.now(timezone.utc).isoformat()
     }
-    if setting_id:
-        data["setting_id"] = setting_id
-        
     client.table("notification_history").insert(data).execute()
 
 def delete_old_notifications(days=7):

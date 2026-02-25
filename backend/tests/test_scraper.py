@@ -113,7 +113,6 @@ def test_fetch_reservations_success(mock_post):
     assert results[0]["park_name"] == "덕유산"
     assert results[0]["available_count"] == 5
     assert results[0]["waiting_count"] == 0
-    assert results[0]["identifier"] == "20260301_덕유산_카라반"
 @patch('requests.post')
 def test_fetch_reservations_waiting_list(mock_post):
     # Mock KNPS API response with waiting list only
@@ -140,6 +139,4 @@ def test_fetch_reservations_waiting_list(mock_post):
     assert len(results) == 1
     assert results[0]["available_count"] == 0
     assert results[0]["waiting_count"] == 2
-    assert "대기 2" not in results[0]["identifier"]
-    assert results[0]["identifier"] == "20260301_가야산_자동차야영장"
 

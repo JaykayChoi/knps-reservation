@@ -196,12 +196,26 @@ def check_reservations():
             to_notify = []
             cooldown_days = settings.get("cooldown_days", 3)
             include_waiting = settings.get("include_waiting", True)
+            s_id = settings.get("id")
+            
             for res in available:
-                # Filter out waiting list if user doesn't want it
-                if not include_waiting and res.get("available_count", 0) == 0:
-                    continue
-                    
-                if not db.check_cooldown(res["identifier"], settings.get("id"), cooldown_days):
+                is_res_new = False
+                is_wait_new = False
+                
+                # 1. Check for "Reservation" availability (cntN)
+                if res.get("available_count", 0) > 0:
+                    if not db.check_cooldown(s_id, res["date"], res["park_name"], res["facility_type"], False, cooldown_days):
+                        is_res_new = True
+                
+                # 2. Check for "Waiting" availability (cntW)
+                if include_waiting and res.get("waiting_count", 0) > 0:
+                    if not db.check_cooldown(s_id, res["date"], res["park_name"], res["facility_type"], True, cooldown_days):
+                        is_wait_new = True
+                
+                if is_res_new or is_wait_new:
+                    # Store which part triggered the notification for recording later
+                    res["_is_res_new"] = is_res_new
+                    res["_is_wait_new"] = is_wait_new
                     to_notify.append(res)
             if to_notify:
                 all_notifications.append({
@@ -247,13 +261,20 @@ def check_reservations():
                 if success:
                     success_count += 1
                     for res in telegram_config["notifications"]:
-                        # Find the setting_id for this notification to record it correctly
-                        s_id = None
+                        # Find the setting_id for this notification group
+                        # Notifications are already grouped by telegram config, but they might come from multiple settings
+                        # We need to find the specific setting_id for this reservation item.
+                        item_s_id = None
                         for group in all_notifications:
-                            if any(n["identifier"] == res["identifier"] for n in group["notifications"]):
-                                s_id = group["setting_id"]
+                            if any(n["date"] == res["date"] and n["park_name"] == res["park_name"] and n["facility_type"] == res["facility_type"] for n in group["notifications"]):
+                                item_s_id = group["setting_id"]
                                 break
-                        db.record_notification(res["identifier"], s_id)
+                        
+                        if item_s_id:
+                            if res.get("_is_res_new"):
+                                db.record_notification(item_s_id, res["date"], res["park_name"], res["facility_type"], False)
+                            if res.get("_is_wait_new"):
+                                db.record_notification(item_s_id, res["date"], res["park_name"], res["facility_type"], True)
             if success_count > 0:
                 # Record the check time
                 db.record_last_check_time()
