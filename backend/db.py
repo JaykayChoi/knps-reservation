@@ -261,20 +261,20 @@ def delete_history_by_setting(setting_id):
         return False
 
 #XB|
-#HM|def delete_all_history():
-#BZ|    """Delete all notification history records from the database."""
-#SQ|    client = get_supabase()
-#PM|    if not client:
-#VB|        return False
-#BJ|    try:
-#PY|        # Supabase delete without filters will delete all rows if the table policy allows it
-#PP|        client.table("notification_history") \
-#PP|            .delete() \
-#PP|            .neq("id", -1) \
-#JQ|            .execute()
-#ZT|        return True
-#SB|    except Exception as e:
-#NW|        import logging
-#VH|        logging.getLogger(__name__).error(f"Failed to delete all notification history: {e}")
-#VB|        return False
+def delete_all_history():
+    """Delete all notification history records from the database."""
+    client = get_supabase()
+    if not client:
+        return False
+    try:
+        # Supabase delete without filters will delete all rows if the table policy allows it
+        client.table("notification_history") \
+            .delete() \
+            .neq("id", -1) \
+            .execute()
+        return True
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Failed to delete all notification history: {e}")
+        return False
 #XB|
