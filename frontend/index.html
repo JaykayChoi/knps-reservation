@@ -677,7 +677,6 @@
         // Populate Form
         function populateForm(data) {
             if (!data) return;
-            if (!data) return;
             
             document.getElementById('setting_id').value = data.id || '';
 
@@ -690,15 +689,6 @@
                 }
             });
 
-            // Active Checkbox
-            // Checkboxes (Active, Include Waiting)
-            ['is_active', 'include_waiting'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.checked = data[id] !== false;
-            });
-            if (isActiveEl) {
-                isActiveEl.checked = data.is_active !== false; // Default to true if undefined
-            }
 
             // Date Mode Radio
             if (data.date_mode) {
