@@ -113,19 +113,38 @@ def delete_setting_history(setting_id):
     except Exception as e:
         logger.exception(f"Error in DELETE /api/settings/{setting_id}/history")
         return jsonify({"error": str(e)}), 500
-#YZ|@app.route("/api/history", methods=["DELETE"])
-#BN|def delete_all_history():
-#BJ|    try:
-#MY|        success = db.delete_all_history()
-#QB|        if success:
-#VM|            return jsonify({"success": True})
-#ZR|        else:
-#BN|            return jsonify({"error": "Failed to delete all history"}), 500
-#SB|    except Exception as e:
-#ST|        logger.exception("Error in DELETE /api/history")
-#YV|        return jsonify({"error": str(e)}), 500
-#BK|
+@app.route("/api/search", methods=["GET"])
+def search_availability():
+    try:
+        raw_dates = request.args.get("dates", "")
+        raw_types = request.args.get("types", "")
+        raw_parks = request.args.get("parks", "")
+        
+        date_input = raw_dates if raw_dates else request.args.get("date")
+        if not date_input:
+            return jsonify({"error": "Date is required"}), 400
+            
+        target_dates = [d.strip().replace("-", "") for d in date_input.split(",") if d.strip()]
+        facility_types = [t.strip() for t in raw_types.split(",") if t.strip()]
+        parks = [p.strip() for p in raw_parks.split(",") if p.strip()]
+        
+        results = scraper.fetch_reservations(target_dates, facility_types, parks)
+        return jsonify(results)
+    except Exception as e:
+        logger.exception("Error in /api/search")
+        return jsonify({"error": str(e)}), 500
 
+@app.route("/api/history", methods=["DELETE"])
+def delete_all_history():
+    try:
+        success = db.delete_all_history()
+        if success:
+            return jsonify({"success": True})
+        else:
+            return jsonify({"error": "Failed to delete all history"}), 500
+    except Exception as e:
+        logger.exception("Error in DELETE /api/history")
+        return jsonify({"error": str(e)}), 500
 @app.route("/api/check", methods=["GET", "POST"])
 def check_reservations():
     try:

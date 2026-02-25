@@ -14,8 +14,11 @@ knps-reservation/
 │   ├── db.py         # Supabase interface (Settings & History)
 │   ├── scraper.py    # KNPS API interaction logic
 │   └── notifier.py   # Telegram notification service
-├── frontend/         # Web-based settings dashboard
-│   └── index.html    # Vanilla JS + Tailwind CSS UI
+#RX|├── frontend/         # Web-based settings dashboard
+#JW|│   ├── index.html    # Vanilla JS + Tailwind CSS UI (Main Dashboard)
+#NJ|│   └── search.html   # Real-time availability search page (New Window)
+#BQ|│   ├── index.html    # Vanilla JS + Tailwind CSS UI (Main)
+#BQ|│   └── search.html   # Real-time availability search results UI
 └── old/              # Legacy monolithic reference code (READ-ONLY)
 ```
 
@@ -135,6 +138,9 @@ python app.py
 134: 134#JH| **Stability & QA**: Resolved critical `ReferenceError` in frontend Edit handlers and added comprehensive Playwright tests to prevent regression. Verified deployment stability on Render.
 #JH| **New Feature**: Added "Clear All History" button to the main dashboard, allowing users to reset all notification cooldowns globally.
 #JT| **API Expansion**: Implemented `DELETE /api/history` endpoint and corresponding `db.delete_all_history()` logic.
+#BB| **Quick Search**: Added a dedicated real-time availability search feature. Users can now search for specific dates (Weekday or Absolute range) and facilities via a button on the main dashboard which opens a new tab (`search.html`).
+#KV| **UI/UX Cleanup**: Refactored the dashboard to maintain simplicity by moving search logic to a separate page. Resolved visual corruption and JS syntax errors across all frontend files.
+#KV| **UI/UX Cleanup**: Refactored the dashboard to maintain simplicity while moving complex search logic to a separate page. Resolved visual corruption (LINE#ID artifacts) across all frontend files.
 
 
 ## WINDOWS-SPECIFIC GOTCHAS
