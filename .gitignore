@@ -24,3 +24,14 @@ node_modules/
 nul
 NUL
 test_server.py
+
+# Claude Code
+.claude/settings.local.json
+
+# OMC state
+.omc/
+
+# Test artifacts
+.coverage
+test-results/
+playwright-report/
