@@ -92,11 +92,15 @@ def delete_setting(setting_id):
 def create_setting():
     try:
         data = request.json
+        logger.info(f"Creating new setting with data: {data}")
         new_setting = db.create_settings(data)
         if not new_setting:
+            logger.error("create_settings returned None")
             return jsonify({"error": "Failed to create setting"}), 500
+        logger.info(f"Setting created successfully: id={new_setting.get('id')}")
         return jsonify({"success": True, "setting": new_setting})
     except ValueError as e:
+        logger.warning(f"ValueError in PUT /api/settings: {e}")
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         logger.exception("Error in PUT /api/settings")
