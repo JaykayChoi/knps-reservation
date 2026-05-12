@@ -151,16 +151,25 @@ def delete_all_history():
         return jsonify({"error": str(e)}), 500
 @app.route("/api/check", methods=["GET", "POST"])
 def check_reservations():
+    check_start_ts = datetime.now()
+    total_dates_checked = 0
+    total_available_found = 0
+    total_res_new = 0
+    total_wait_new = 0
+    telegram_sends_attempted = 0
+    telegram_sends_succeeded = 0
+    telegram_items_sent = 0
     try:
         # Clean up old notifications (older than 7 days)
         db.delete_old_notifications(7)
         all_settings = db.get_settings()  # Returns all active settings
         if not all_settings:
+            logger.info("[CHECK SUMMARY] No active settings found")
             return jsonify({"error": "No active settings found"}), 404
-        
+
         all_notifications = []
         total_available = 0
-        
+
         for settings in all_settings:
             # 1. Get target dates based on date_mode
             date_mode = settings.get("date_mode", "weekday")
@@ -221,12 +230,14 @@ def check_reservations():
                 )
             
             dates = sorted(list(set(dates)))
+            total_dates_checked += len(dates)
             # 2. Fetch reservations
             available = scraper.fetch_reservations(
-                dates, 
-                settings.get("selected_types", []), 
+                dates,
+                settings.get("selected_types", []),
                 settings.get("selected_parks", [])
             )
+            total_available_found += len(available)
             # 3. Filter by availability and user preference
             to_notify = []
             cooldown_days = settings.get("cooldown_days", 3)
@@ -252,6 +263,10 @@ def check_reservations():
                     res["_is_res_new"] = is_res_new
                     res["_is_wait_new"] = is_wait_new
                     to_notify.append(res)
+                    if is_res_new:
+                        total_res_new += 1
+                    if is_wait_new:
+                        total_wait_new += 1
             if to_notify:
                 all_notifications.append({
                     "setting_id": settings.get("id"),
@@ -287,6 +302,7 @@ def check_reservations():
             success_count = 0
             for key, telegram_config in notifications_by_telegram.items():
                 logger.info(f"Sending notification for {len(telegram_config['notifications'])} items to {telegram_config['chat_id']}. is_test={is_test}")
+                telegram_sends_attempted += 1
                 success = notifier.send_telegram_notification(
                     telegram_config["token"],
                     telegram_config["chat_id"],
@@ -295,6 +311,8 @@ def check_reservations():
                 )
                 if success:
                     success_count += 1
+                    telegram_sends_succeeded += 1
+                    telegram_items_sent += len(telegram_config["notifications"])
                     for res in telegram_config["notifications"]:
                         # Find the setting_id for this notification group
                         # Notifications are already grouped by telegram config, but they might come from multiple settings
@@ -310,19 +328,48 @@ def check_reservations():
                                 db.record_notification(item_s_id, res["date"], res["park_name"], res["facility_type"], False)
                             if res.get("_is_wait_new"):
                                 db.record_notification(item_s_id, res["date"], res["park_name"], res["facility_type"], True)
+            elapsed = (datetime.now() - check_start_ts).total_seconds()
             if success_count > 0:
                 # Record the check time
                 db.record_last_check_time()
-                
+
+                logger.info(
+                    f"[CHECK SUMMARY] status=notified settings={len(all_settings)} "
+                    f"dates_checked={total_dates_checked} available_items={total_available_found} "
+                    f"new_to_notify={total_available} (reservation={total_res_new}, waiting={total_wait_new}) "
+                    f"telegram_sends={telegram_sends_succeeded}/{telegram_sends_attempted} "
+                    f"items_sent={telegram_items_sent} elapsed={elapsed:.2f}s"
+                )
                 return jsonify({"status": "Notifications sent", "count": total_available, "settings_checked": len(all_settings)})
             else:
+                logger.warning(
+                    f"[CHECK SUMMARY] status=send_failed settings={len(all_settings)} "
+                    f"dates_checked={total_dates_checked} available_items={total_available_found} "
+                    f"new_to_notify={total_available} (reservation={total_res_new}, waiting={total_wait_new}) "
+                    f"telegram_sends={telegram_sends_succeeded}/{telegram_sends_attempted} "
+                    f"items_sent={telegram_items_sent} elapsed={elapsed:.2f}s"
+                )
                 return jsonify({"status": "Failed to send notifications"}), 500
         # Record the check time
         db.record_last_check_time()
-        
+
+        elapsed = (datetime.now() - check_start_ts).total_seconds()
+        logger.info(
+            f"[CHECK SUMMARY] status=no_new settings={len(all_settings)} "
+            f"dates_checked={total_dates_checked} available_items={total_available_found} "
+            f"new_to_notify=0 (reservation=0, waiting=0) "
+            f"telegram_sends=0/0 items_sent=0 elapsed={elapsed:.2f}s"
+        )
         return jsonify({"status": "No new availability found", "count": 0, "settings_checked": len(all_settings)})
     except Exception as e:
-        logger.exception("Error in /api/check")
+        elapsed = (datetime.now() - check_start_ts).total_seconds()
+        logger.exception(
+            f"[CHECK SUMMARY] status=error dates_checked={total_dates_checked} "
+            f"available_items={total_available_found} new_to_notify={total_res_new + total_wait_new} "
+            f"(reservation={total_res_new}, waiting={total_wait_new}) "
+            f"telegram_sends={telegram_sends_succeeded}/{telegram_sends_attempted} "
+            f"items_sent={telegram_items_sent} elapsed={elapsed:.2f}s error={e}"
+        )
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
