@@ -4,8 +4,11 @@ import db
 import scraper
 import notifier
 import os
+import random
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+KST = timezone(timedelta(hours=9))
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -151,6 +154,25 @@ def delete_all_history():
         return jsonify({"error": str(e)}), 500
 @app.route("/api/check", methods=["GET", "POST"])
 def check_reservations():
+    # Probability gate: outside 0~1 hour (KST), only run with given probability.
+    kst_hour = datetime.now(KST).hour
+    if kst_hour not in (0, 1):
+        try:
+            prob = float(os.environ.get("CHECK_PROBABILITY", "0.2"))
+        except ValueError:
+            prob = 0.2
+        roll = random.random()
+        if roll >= prob:
+            logger.info(
+                f"[CHECK SUMMARY] status=skipped reason=probability_gate "
+                f"kst_hour={kst_hour} probability={prob} roll={roll:.4f}"
+            )
+            return jsonify({
+                "status": "Skipped by probability gate",
+                "kst_hour": kst_hour,
+                "probability": prob,
+            })
+
     check_start_ts = datetime.now()
     total_dates_checked = 0
     total_available_found = 0
