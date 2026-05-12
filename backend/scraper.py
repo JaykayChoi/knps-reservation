@@ -40,7 +40,7 @@ def fetch_reservations(dates, facility_types, parks):
             resp.raise_for_status()
             data_json = resp.json()
 
-            for item in data_json.get("list", []):
+            for item in (data_json.get("list") or []):
                 # Filter by facility type
                 if facility_types and item.get("prdCtgNm") not in facility_types:
                     continue
