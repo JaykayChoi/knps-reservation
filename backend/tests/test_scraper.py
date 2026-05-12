@@ -81,62 +81,57 @@ def test_get_target_dates_default_mode(mocker):
     assert "20260227" in dates
     assert len(dates) == 1
 
-@patch('requests.post')
-def test_fetch_reservations_success(mock_post):
-    # Mock KNPS API response
-    mock_response = MagicMock()
-    mock_response.json.return_value = {
+def _mock_session_with_json(json_payload):
+    session = MagicMock()
+    response = MagicMock()
+    response.json.return_value = json_payload
+    response.raise_for_status.return_value = None
+    session.post.return_value = response
+    return session
+
+
+@patch('scraper._build_session')
+def test_fetch_reservations_success(mock_build_session):
+    mock_build_session.return_value = _mock_session_with_json({
         "list": [
-            {
-                "officeNm": "덕유산",
-                "deptNm": "덕유산야영장",
-                "prdCtgNm": "카라반",
-                "cntN": 5
-            },
-            {
-                "officeNm": "치악산",
-                "deptNm": "치악산야영장",
-                "prdCtgNm": "자동차야영장",
-                "cntN": 0  # No availability
-            }
+            {"officeNm": "덕유산", "deptNm": "덕유산야영장", "prdCtgNm": "카라반", "cntN": 5},
+            {"officeNm": "치악산", "deptNm": "치악산야영장", "prdCtgNm": "자동차야영장", "cntN": 0},
         ]
-    }
-    mock_post.return_value = mock_response
-    
-    dates = ["20260301"]
-    facility_types = ["카라반"]
-    parks = ["덕유산"]
-    
-    results = fetch_reservations(dates, facility_types, parks)
-    
+    })
+
+    results = fetch_reservations(["20260301"], ["카라반"], ["덕유산"])
+
     assert len(results) == 1
     assert results[0]["park_name"] == "덕유산"
     assert results[0]["available_count"] == 5
     assert results[0]["waiting_count"] == 0
-@patch('requests.post')
-def test_fetch_reservations_waiting_list(mock_post):
-    # Mock KNPS API response with waiting list only
-    mock_response = MagicMock()
-    mock_response.json.return_value = {
+
+
+@patch('scraper._build_session')
+def test_fetch_reservations_waiting_list(mock_build_session):
+    mock_build_session.return_value = _mock_session_with_json({
         "list": [
-            {
-                "officeNm": "가야산",
-                "deptNm": "백운동",
-                "prdCtgNm": "자동차야영장",
-                "cntN": 0,
-                "cntW": 2
-            }
+            {"officeNm": "가야산", "deptNm": "백운동", "prdCtgNm": "자동차야영장", "cntN": 0, "cntW": 2}
         ]
-    }
-    mock_post.return_value = mock_response
-    
-    dates = ["20260301"]
-    facility_types = ["자동차야영장"]
-    parks = ["가야산"]
-    
-    results = fetch_reservations(dates, facility_types, parks)
-    
+    })
+
+    results = fetch_reservations(["20260301"], ["자동차야영장"], ["가야산"])
+
     assert len(results) == 1
     assert results[0]["available_count"] == 0
     assert results[0]["waiting_count"] == 2
+
+
+@patch('scraper._build_session')
+def test_fetch_reservations_returns_empty_when_login_fails(mock_build_session):
+    mock_build_session.return_value = None
+    results = fetch_reservations(["20260301"], [], [])
+    assert results == []
+
+
+@patch('scraper._build_session')
+def test_fetch_reservations_handles_null_list(mock_build_session):
+    mock_build_session.return_value = _mock_session_with_json({"list": None})
+    results = fetch_reservations(["20260301"], [], [])
+    assert results == []
 
