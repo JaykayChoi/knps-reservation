@@ -5,7 +5,7 @@ import scraper
 import notifier
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -193,15 +193,14 @@ def check_reservations():
                 start_date = settings.get("start_date")
                 end_date = settings.get("end_date")
                 if start_date and end_date:
-                    import datetime
                     try:
-                        sd = datetime.datetime.strptime(start_date, "%Y-%m-%d").date()
-                        ed = datetime.datetime.strptime(end_date, "%Y-%m-%d").date()
+                        sd = datetime.strptime(start_date, "%Y-%m-%d").date()
+                        ed = datetime.strptime(end_date, "%Y-%m-%d").date()
                         if sd <= ed:
                             span = (ed - sd).days + 1
                             if span > 120: span = 120
                             for i in range(span):
-                                dates.append((sd + datetime.timedelta(days=i)).strftime("%Y%m%d"))
+                                dates.append((sd + timedelta(days=i)).strftime("%Y%m%d"))
                     except:
                         pass
             elif date_mode == "absolute":
@@ -210,15 +209,14 @@ def check_reservations():
                 start_date = settings.get("start_date")
                 end_date = settings.get("end_date")
                 if start_date and end_date:
-                    import datetime
                     try:
-                        sd = datetime.datetime.strptime(start_date, "%Y-%m-%d").date()
-                        ed = datetime.datetime.strptime(end_date, "%Y-%m-%d").date()
+                        sd = datetime.strptime(start_date, "%Y-%m-%d").date()
+                        ed = datetime.strptime(end_date, "%Y-%m-%d").date()
                         if sd <= ed:
                             span = (ed - sd).days + 1
                             if span > 120: span = 120
                             for i in range(span):
-                                specific_dates.append((sd + datetime.timedelta(days=i)).strftime("%Y-%m-%d"))
+                                specific_dates.append((sd + timedelta(days=i)).strftime("%Y-%m-%d"))
                     except:
                         pass
                 
