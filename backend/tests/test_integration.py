@@ -3,6 +3,7 @@ import os
 import configparser
 from flask import json
 import sys
+from unittest.mock import patch
 
 # Add parent directory to path for imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -31,7 +32,14 @@ def telegram_config():
         'chat_id': config.get('telegram', 'chat_id')
     }
 
-def test_update_settings_success(client):
+@patch('app.db.update_settings')
+def test_update_settings_success(mock_update, client):
+    """POST /api/settings 라우트 계약만 검증한다.
+
+    db.update_settings 를 반드시 목킹할 것: 이 엔드포인트는 setting_id 가 없으면
+    '첫 번째 활성 설정'을 덮어쓰므로, 목킹하지 않으면 .env 가 가리키는 실제
+    Supabase 의 사용자 설정이 테스트 데이터로 파괴된다.
+    """
     test_data = {
         "weeks_ahead": 4,
         "start_date": "2026-03-01",
@@ -47,6 +55,7 @@ def test_update_settings_success(client):
     response = client.post('/api/settings', data=json.dumps(test_data), content_type='application/json')
     assert response.status_code == 200
     assert response.get_json() == {"success": True}
+    mock_update.assert_called_once_with(test_data)
 
 def test_telegram_test_notification(telegram_config):
     if telegram_config['token'] == 'dummy':
