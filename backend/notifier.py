@@ -50,6 +50,40 @@ def send_telegram_notification(token, chat_id, reservations, is_test=False):
             print(f"Telegram error for chunk {chunk_index + 1}: {e}")
             # 하나의 청크 실패해도 나머지 청크는 시도
             continue
-    
+
     # 모든 청크가 성공했는지 반환
     return success_count == total_chunks
+
+
+def send_parking_notification(token, chat_id, passes, is_test=False):
+    """모두의주차장 월정기권 판매중 알림을 전송한다.
+
+    passes: modu_scraper.fetch_monthly_passes() 가 돌려주는 항목 리스트.
+    """
+    if not token or not chat_id or not passes:
+        return False
+
+    header = "[TEST] 🅿️" if is_test else "🅿️"
+    message = f"{header} *[월정기권 자리 알림]*\n\n"
+
+    for item in passes:
+        message += f"📍 *{item['lot_name']}*\n"
+        message += f"🎫 {item['ticket_name']} - {item['price']:,}원\n"
+        message += f"[구매 페이지 열기]({item['url']})\n"
+        message += "-------------------\n"
+
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "Markdown",
+        "disable_web_page_preview": True
+    }
+
+    try:
+        resp = requests.post(url, json=payload, timeout=10)
+        resp.raise_for_status()
+        return True
+    except Exception as e:
+        print(f"Telegram error for parking notification: {e}")
+        return False

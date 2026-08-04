@@ -79,6 +79,7 @@ def create_settings(settings):
         "end_date": None,
         "selected_types": ["특화야영장", "카라반", "자동차야영장"],
         "selected_parks": [],
+        "selected_parkinglots": [],
         "cooldown_days": 3,
         "telegram_bot_token": "",
         "telegram_chat_id": "",
@@ -109,8 +110,8 @@ def create_settings(settings):
         return None
     except Exception as e:
         error_str = str(e)
-        if any(col in error_str for col in ["name", "date_mode", "is_active", "include_waiting", "created_at", "updated_at"]):
-            for col in ["name", "date_mode", "is_active", "include_waiting", "created_at", "updated_at"]:
+        if any(col in error_str for col in ["name", "date_mode", "is_active", "include_waiting", "selected_parkinglots", "created_at", "updated_at"]):
+            for col in ["name", "date_mode", "is_active", "include_waiting", "selected_parkinglots", "created_at", "updated_at"]:
                 merged_settings.pop(col, None)
             response = client.table("user_settings").insert(merged_settings).execute()
             if response.data:

@@ -35,3 +35,4 @@ test_server.py
 .coverage
 test-results/
 playwright-report/
+.playwright-mcp/

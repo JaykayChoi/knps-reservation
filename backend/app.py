@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import db
 import scraper
+import modu_scraper
 import notifier
 import os
 import random
@@ -9,6 +10,9 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 KST = timezone(timedelta(hours=9))
+
+# 주차장 월정기권은 날짜 개념이 없어 이력 키의 target_date 자리에 상수를 쓴다.
+PARKING_HISTORY_DATE = "MONTHLY"
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -152,8 +156,87 @@ def delete_all_history():
     except Exception as e:
         logger.exception("Error in DELETE /api/history")
         return jsonify({"error": str(e)}), 500
+@app.route("/api/parking-lots", methods=["GET"])
+def get_parking_lots():
+    """Monitorable 모두의주차장 parking lots (fixed list)."""
+    return jsonify(modu_scraper.get_parking_lots())
+
+
+def run_parking_check(all_settings, is_test=False):
+    """Check 모두의주차장 monthly passes for every setting that watches a lot.
+
+    Runs on every /api/check call regardless of the probability gate: monthly
+    passes are released whenever someone cancels, not on a fixed schedule.
+    """
+    summary = {"lots_checked": 0, "available": 0, "notified": 0}
+    try:
+        watchers = [s for s in all_settings if s.get("selected_parkinglots")]
+        if not watchers:
+            return summary
+
+        # 여러 설정이 같은 주차장을 봐도 조회는 합집합으로 1번만.
+        wanted = sorted({str(seq) for s in watchers for seq in (s.get("selected_parkinglots") or [])})
+        passes = modu_scraper.fetch_monthly_passes(wanted)
+        summary["lots_checked"] = len(wanted)
+
+        available = [p for p in passes if p["is_available"]]
+        summary["available"] = len(available)
+        if not available:
+            return summary
+
+        for settings in watchers:
+            token = settings.get("telegram_bot_token")
+            chat_id = settings.get("telegram_chat_id")
+            if not token or not chat_id:
+                continue
+
+            s_id = settings.get("id")
+            selected = {str(seq) for seq in (settings.get("selected_parkinglots") or [])}
+            cooldown_days = settings.get("cooldown_days", 3)
+
+            to_notify = []
+            for item in available:
+                if str(item["lot_seq"]) not in selected:
+                    continue
+                if db.check_cooldown(
+                    s_id, PARKING_HISTORY_DATE, item["lot_name"], item["ticket_name"], False, cooldown_days
+                ):
+                    continue
+                to_notify.append(item)
+
+            if not to_notify:
+                continue
+
+            logger.info(f"Sending parking notification for {len(to_notify)} passes to {chat_id}. is_test={is_test}")
+            if notifier.send_parking_notification(token, chat_id, to_notify, is_test=is_test):
+                summary["notified"] += len(to_notify)
+                for item in to_notify:
+                    db.record_notification(
+                        s_id, PARKING_HISTORY_DATE, item["lot_name"], item["ticket_name"], False
+                    )
+    except Exception as e:
+        # 주차장 확인 실패가 국립공원 확인을 막지 않도록 격리한다.
+        logger.exception(f"Parking check failed: {e}")
+
+    return summary
+
+
 @app.route("/api/check", methods=["GET", "POST"])
 def check_reservations():
+    is_test = request.args.get("test") == "true"
+
+    # 주차장 월정기권은 스케줄/확률 게이트와 무관하게 매 호출마다 확인한다.
+    try:
+        active_settings = db.get_settings()
+    except Exception:
+        logger.exception("Failed to load settings for parking check")
+        active_settings = []
+    parking_summary = run_parking_check(active_settings, is_test=is_test)
+    logger.info(
+        f"[PARKING SUMMARY] lots_checked={parking_summary['lots_checked']} "
+        f"available={parking_summary['available']} notified={parking_summary['notified']}"
+    )
+
     # Probability gate: outside 0~1 hour (KST), only run with given probability.
     kst_hour = datetime.now(KST).hour
     if kst_hour not in (0, 1):
@@ -171,6 +254,7 @@ def check_reservations():
                 "status": "Skipped by probability gate",
                 "kst_hour": kst_hour,
                 "probability": prob,
+                "parking": parking_summary,
             })
 
     check_start_ts = datetime.now()
@@ -187,7 +271,7 @@ def check_reservations():
         all_settings = db.get_settings()  # Returns all active settings
         if not all_settings:
             logger.info("[CHECK SUMMARY] No active settings found")
-            return jsonify({"error": "No active settings found"}), 404
+            return jsonify({"error": "No active settings found", "parking": parking_summary}), 404
 
         all_notifications = []
         total_available = 0
@@ -296,8 +380,6 @@ def check_reservations():
                 total_available += len(to_notify)
         # 4. Notify and Record
         if all_notifications:
-            # Only prefix [TEST] if explicitly requested via query param
-            is_test = request.args.get("test") == "true"
             # Group notifications by Telegram credentials
             notifications_by_telegram = {}
             for notification_group in all_notifications:
@@ -360,7 +442,12 @@ def check_reservations():
                     f"telegram_sends={telegram_sends_succeeded}/{telegram_sends_attempted} "
                     f"items_sent={telegram_items_sent} elapsed={elapsed:.2f}s"
                 )
-                return jsonify({"status": "Notifications sent", "count": total_available, "settings_checked": len(all_settings)})
+                return jsonify({
+                    "status": "Notifications sent",
+                    "count": total_available,
+                    "settings_checked": len(all_settings),
+                    "parking": parking_summary,
+                })
             else:
                 logger.warning(
                     f"[CHECK SUMMARY] status=send_failed settings={len(all_settings)} "
@@ -380,7 +467,12 @@ def check_reservations():
             f"new_to_notify=0 (reservation=0, waiting=0) "
             f"telegram_sends=0/0 items_sent=0 elapsed={elapsed:.2f}s"
         )
-        return jsonify({"status": "No new availability found", "count": 0, "settings_checked": len(all_settings)})
+        return jsonify({
+            "status": "No new availability found",
+            "count": 0,
+            "settings_checked": len(all_settings),
+            "parking": parking_summary,
+        })
     except Exception as e:
         elapsed = (datetime.now() - check_start_ts).total_seconds()
         logger.exception(
