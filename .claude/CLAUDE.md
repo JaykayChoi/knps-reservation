@@ -191,9 +191,3 @@ Follow the user's explicit team composition if specified.
 - **NO git operations without EXPLICIT user text request**
 - **EXPLICIT means**: User must type words like "git에 올려줘", "커밋해줘", "푸시해줘"
 - **NO exceptions**: Not for documentation, not for bug fixes, not for completed features
-
-### MD File Writing Rules
-- All `.md` files written by Claude for record-keeping must be **written in English**
-- When writing an English file, **always create a Korean translation** in the same folder as `filename.kr.md`
-- `.kr.md` files are for user reference only; **Claude must NOT read `.kr.md` files** (excluded from reading targets)
-- When **modifying or creating** a `.md` file, **always update/create the corresponding `.kr.md` file** as well
