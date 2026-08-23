@@ -140,6 +140,12 @@ def update_settings(settings, setting_id=None):
                 raise
 
 def check_cooldown(setting_id, target_date, park_name, facility_type, is_waiting, cooldown_days):
+    # A zero-day cooldown means every matching availability may notify again.
+    # Return before initializing Supabase so the notification history cannot
+    # suppress alerts in this mode.
+    if cooldown_days <= 0:
+        return False
+
     client = get_supabase()
     if not client:
         return False

@@ -443,6 +443,15 @@ class TestUpdateSettings:
 
 class TestCheckCooldown:
     """Tests for check_cooldown() function."""
+
+    def test_zero_cooldown_is_disabled_without_history_lookup(self, mocker):
+        """A zero-day cooldown must never suppress a notification."""
+        mock_get_supabase = mocker.patch('db.get_supabase')
+
+        result = db.check_cooldown(1, "20260223", "지리산", "특화야영장", False, 0)
+
+        assert result is False
+        mock_get_supabase.assert_not_called()
     
     def test_check_cooldown_active(self, mocker):
         """Test that cooldown is active when notification was sent recently."""

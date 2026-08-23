@@ -44,7 +44,7 @@ def test_update_settings_success(mock_update, client):
         "weeks_ahead": 4,
         "start_date": "2026-03-01",
         "end_date": "2026-03-31",
-        "cooldown_days": 1,
+        "cooldown_days": 0,
         "telegram_bot_token": "test_token",
         "telegram_chat_id": "test_chat_id",
         "include_waiting": True,
