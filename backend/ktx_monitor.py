@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='ktx-check')
 _lock = Lock()
 _future = None
+NOTIFICATION_BATCH_SIZE = 20
 
 
 def history_key(item):
@@ -38,15 +39,21 @@ def run_check(settings_list, is_test=False):
             available = cache[key]
             summary['available'] += len(available)
             cooldown = setting.get('cooldown_days', 3)
+            pending = []
             for item in available:
                 identity = history_key(item)
                 if db.check_cooldown(sid, *identity, cooldown):
                     continue
-                if not notifier.send_ktx_notification(token, chat, [item], is_test=is_test):
+                pending.append((item, identity))
+            for start in range(0, len(pending), NOTIFICATION_BATCH_SIZE):
+                batch = pending[start:start + NOTIFICATION_BATCH_SIZE]
+                items = [item for item, _ in batch]
+                if not notifier.send_ktx_notification(token, chat, items, is_test=is_test):
                     raise ktx_scraper.KtxError('Telegram delivery failed')
-                summary['notified'] += 1
+                summary['notified'] += len(items)
                 if cooldown > 0:
-                    db.record_notification(sid, *identity)
+                    for _, identity in batch:
+                        db.record_notification(sid, *identity)
         except Exception as exc:
             message = str(exc) if isinstance(exc, ktx_scraper.KtxError) else 'KTX check failed'
             logger.error('KTX setting %s failed (%s)', sid, type(exc).__name__)

@@ -43,7 +43,9 @@ replicas or request-lifetime/serverless hosting: overlap protection is per proce
 Requests have connection/read timeouts; searches have a 40-page safety limit
 (narrow the time window if exceeded). KTX history distinguishes date, route,
 train number, departure time and seat class, and is written only after successful
-delivery. Cooldown 0 repeats alerts; the existing midnight history reset still applies.
+delivery. Seats found by one check are combined into one Telegram message and split
+only above 20 items to stay within message limits. Cooldown 0 repeats alerts; the
+existing midnight history reset still applies.
 
 Settings APIs accept `category` and `ktx_options`. Partial updates preserve
 the category; switching categories clears unrelated filters. KTX options:

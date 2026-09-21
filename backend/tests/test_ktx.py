@@ -64,6 +64,38 @@ def test_notification_records_only_success(mocker, sent, cooldown, recorded):
     assert bool(summary['errors']) is (not sent)
 
 
+def test_available_trains_are_sent_as_one_notification(mocker):
+    items = [
+        dict(date='20991001', departure='서울', arrival='부산', train_no='001',
+             departure_time='090000', arrival_time='120000', seat_class='general'),
+        dict(date='20991001', departure='서울', arrival='부산', train_no='003',
+             departure_time='100000', arrival_time='130000', seat_class='special'),
+    ]
+    mocker.patch('ktx_monitor.ktx_scraper.fetch_availability', return_value=items)
+    mocker.patch('ktx_monitor.db.check_cooldown', return_value=False)
+    record = mocker.patch('ktx_monitor.db.record_notification')
+    send = mocker.patch('ktx_monitor.notifier.send_ktx_notification', return_value=True)
+    summary = ktx_monitor.run_check([dict(id=1, category='ktx', ktx_options=OPTIONS,
+        telegram_bot_token='test', telegram_chat_id='test', cooldown_days=3)])
+    send.assert_called_once_with('test', 'test', items, is_test=False)
+    assert record.call_count == 2
+    assert summary['notified'] == 2
+
+
+def test_large_train_results_are_split_into_safe_batches(mocker):
+    items = [dict(date='20991001', departure='서울', arrival='부산', train_no=str(i),
+                  departure_time='090000', arrival_time='120000', seat_class='general')
+             for i in range(21)]
+    mocker.patch('ktx_monitor.ktx_scraper.fetch_availability', return_value=items)
+    mocker.patch('ktx_monitor.db.check_cooldown', return_value=False)
+    mocker.patch('ktx_monitor.db.record_notification')
+    send = mocker.patch('ktx_monitor.notifier.send_ktx_notification', return_value=True)
+    summary = ktx_monitor.run_check([dict(id=1, category='ktx', ktx_options=OPTIONS,
+        telegram_bot_token='test', telegram_chat_id='test', cooldown_days=3)])
+    assert [len(call.args[2]) for call in send.call_args_list] == [20, 1]
+    assert summary['notified'] == 21
+
+
 def test_cooldown_suppresses_and_distinguishes_train_classes(mocker):
     item = dict(date='20991001', departure='서울', arrival='부산', train_no='001',
                 departure_time='090000', arrival_time='120000', seat_class='general')
@@ -96,6 +128,22 @@ def test_telegram_contains_readable_korean_and_rejects_api_error(mocker):
     assert '서울 → 부산' in text
     post.return_value.json.return_value = {'ok': False}
     assert not notifier.send_ktx_notification('test', 'test', [item])
+
+
+def test_telegram_combines_multiple_trains_in_one_message(mocker):
+    post = mocker.patch('notifier.requests.post')
+    post.return_value.json.return_value = {'ok': True}
+    items = [
+        dict(date='20991001', departure='서울', arrival='부산', train_no='001',
+             departure_time='090000', arrival_time='120000', seat_class='general'),
+        dict(date='20991001', departure='서울', arrival='부산', train_no='003',
+             departure_time='100000', arrival_time='130000', seat_class='special'),
+    ]
+    assert notifier.send_ktx_notification('test', 'test', items)
+    post.assert_called_once()
+    text = post.call_args.kwargs['json']['text']
+    assert 'KTX 001' in text and 'KTX 003' in text
+    assert '일반실 예약 가능' in text and '특실 예약 가능' in text
 
 
 def test_category_dispatch_runs_before_knps_probability_gate(mocker, monkeypatch):
