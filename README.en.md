@@ -18,24 +18,22 @@ A real-time monitoring system for Korea National Park Service (KNPS) campsite av
 
 Before deploying, apply `supabase/migrations/20260921120000_setting_categories_ktx.sql`
 after the previous migrations to the existing database (back it up first).
-It adds the `setting_category` enum (`knps`, `moduparking`, `ktx`), `ktx_options`,
-and `system_status.ktx_status`. Existing rows with parking lots get a separate
+It adds the `setting_category` enum (`knps`, `moduparking`, `ktx`) and `ktx_options`.
+Then apply `20260921160000_remove_ktx_status.sql`. Existing rows with parking lots get a separate
 Parking row and their `MONTHLY` history moves to that row. KNPS filters/history
 remain in the original row; activation, Telegram configuration and cooldown are
 preserved. Splitting can exceed the normal ten-setting creation limit without
 losing data. Review the resulting rows and deactivate unwanted KNPS monitors.
 
-Install `backend/requirements.txt`, then configure `KORAIL_ID` and `KORAIL_PASSWORD`
-in the server environment or ignored `backend/.env`. This account is shared by
-the server's KTX monitors; credentials are not stored in settings or shown in the
-browser. The adapter uses the same [pinned korail2 client](https://github.com/dhfhfk/korail2/tree/4b134266fff097ea0fd54e9f760cb128b6c8f878)
-as the reference KTX project. This is an unofficial integration; upstream changes,
-authentication failures and network errors are reported as failed checks.
+Install `backend/requirements.txt`; KTX searches are anonymous and need no Korail
+account. The station picker uses Korail's official station list and does not allow
+free-text station names. The adapter uses a [pinned korail2 client](https://github.com/dhfhfk/korail2/tree/4b134266fff097ea0fd54e9f760cb128b6c8f878)
+for read-only searches. Upstream changes and network errors are reported as failed checks.
 
 Keep the scheduler calling `/api/check`. KTX and Parking bypass the KNPS
 probability gate. KTX runs in a background thread; the response includes
-`ktx.status` (`queued`, `running`, `no_active_settings`). Inspect `GET /api/ktx/status`
-or **Refresh KTX Status** for the persisted result and per-setting errors.
+`ktx.status` (`queued`, `running`, `no_active_settings`). There is no persisted KTX
+status endpoint or refresh panel.
 **Test Now sends real Telegram messages**, including delayed KTX messages; it is
 not a dry run. The adapter never reserves tickets.
 
@@ -51,7 +49,7 @@ Settings APIs accept `category` and `ktx_options`. Partial updates preserve
 the category; switching categories clears unrelated filters. KTX options:
 
 ```json
-{"departure":"서울","arrival":"부산","date":"2026-10-01","start_time":"08:00","end_time":"18:00","seat_class":"either"}
+{"departure":"서울","departure_code":"0001","arrival":"부산","arrival_code":"0020","date":"2026-10-01","start_time":"08:00","end_time":"18:00","seat_class":"either"}
 ```
 
 Offline browser check: `npx playwright test tests/categories.spec.ts` (all requests

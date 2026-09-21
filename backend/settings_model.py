@@ -57,13 +57,20 @@ def normalize_settings(data, existing=None):
     else:
         options = result.get('ktx_options')
         required = {'departure', 'arrival', 'date', 'start_time', 'end_time', 'seat_class'}
-        if not isinstance(options, dict) or set(options) != required:
+        station_codes = {'departure_code', 'arrival_code'}
+        if (not isinstance(options, dict) or not required.issubset(options)
+                or set(options) - required - station_codes):
             raise ValueError('KTX requires departure, arrival, date, start_time, end_time and seat_class')
+        if bool(station_codes & set(options)) and not station_codes.issubset(options):
+            raise ValueError('KTX departure and arrival station codes must be provided together')
         options = dict(options)
-        for field in required:
+        for field in required | (station_codes & set(options)):
             if not isinstance(options[field], str):
                 raise ValueError(f'KTX {field} must be text')
             options[field] = options[field].strip()
+        for field in station_codes & set(options):
+            if not re.fullmatch(r'\d{4}', options[field]):
+                raise ValueError('KTX station codes must contain four digits')
         for field in ('departure', 'arrival'):
             if not re.fullmatch(r'[가-힣A-Za-z0-9() ·-]{1,40}', options[field]):
                 raise ValueError('Enter a valid KTX station name (without 역)')

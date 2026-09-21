@@ -27,6 +27,10 @@ def test_ktx_validation():
     options = dict(departure='서울', arrival='부산', date='2026-10-01',
                    start_time='08:00', end_time='18:00', seat_class='either')
     assert normalize_settings({'category': 'ktx', 'ktx_options': options})['ktx_options'] == options
+    coded = {**options, 'departure_code': '0001', 'arrival_code': '0020'}
+    assert normalize_settings({'category': 'ktx', 'ktx_options': coded})['ktx_options'] == coded
+    with pytest.raises(ValueError):
+        normalize_settings({'category': 'ktx', 'ktx_options': {**options, 'departure_code': '0001'}})
     for changes in ({'arrival': '서울'}, {'date': '2026-02-30'}, {'end_time': '07:00'},
                     {'seat_class': 'standing'}, {'start_time': '25:00'}):
         with pytest.raises(ValueError):

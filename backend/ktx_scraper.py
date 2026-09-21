@@ -1,12 +1,12 @@
-"""Bounded, read-only KTX seat queries using the reference project's client."""
+"""Anonymous, read-only KTX seat and official station queries."""
 from datetime import datetime, timedelta, timezone
 import logging
-import os
 
 import requests
 
 logger = logging.getLogger(__name__)
 KST = timezone(timedelta(hours=9))
+STATIONS_URL = 'https://www.korail.com/public/st_info/station_data.json'
 
 
 class KtxError(RuntimeError):
@@ -23,21 +23,44 @@ class TimeoutSession(requests.Session):
 
 def create_client():
     from korail2 import Korail
-    username = os.environ.get('KORAIL_ID')
-    password = os.environ.get('KORAIL_PASSWORD')
-    if not username or not password:
-        raise KtxError('Configure KORAIL_ID and KORAIL_PASSWORD on the server')
     # korail2 otherwise shares a class-level session. Override before __init__.
     client = Korail.__new__(Korail)
     client._session = TimeoutSession()
     try:
-        Korail.__init__(client, username, password, auto_login=False, want_feedback=False)
-        if not client.login():
-            raise KtxError('KTX login failed')
+        Korail.__init__(client, '', '', auto_login=False, want_feedback=False)
         return client
     except Exception:
         client._session.close()
-        raise KtxError('KTX login failed; check server credentials and Korail availability') from None
+        raise KtxError('Could not initialize anonymous KTX lookup') from None
+
+
+def fetch_stations(*, session=None):
+    """Return the station data used by Korail's public station picker."""
+    owned = session is None
+    session = session or TimeoutSession()
+    try:
+        response = session.get(STATIONS_URL)
+        response.raise_for_status()
+        raw = response.json().get('stns', {}).get('stn', [])
+        stations = []
+        for station in raw:
+            code, name = station.get('stn_cd'), station.get('stn_nm')
+            if not code or not name:
+                continue
+            major = station.get('major')
+            stations.append({
+                'code': str(code),
+                'name': str(name),
+                'area': str(station.get('area', 'all')),
+                'major': int(major) if str(major).isdigit() else None,
+            })
+        return stations
+    except (requests.RequestException, ValueError, TypeError, AttributeError):
+        logger.exception('Could not load Korail station data')
+        raise KtxError('Could not load Korail station list') from None
+    finally:
+        if owned:
+            session.close()
 
 
 def fetch_availability(options, *, client=None):

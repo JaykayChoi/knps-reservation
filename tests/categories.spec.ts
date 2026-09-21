@@ -7,6 +7,11 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/*', async route => {
     const url = new URL(route.request().url());
     if (url.pathname === '/api/parking-lots') return route.fulfill({ json: [{ seq: 12, name: 'Test parking' }] });
+    if (url.pathname === '/api/ktx/stations') return route.fulfill({ json: [
+      { code: '0001', name: '서울', area: '0', major: 1 },
+      { code: '0020', name: '부산', area: '9', major: 22 },
+      { code: '0501', name: '광명', area: '1', major: 3 },
+    ] });
     if (url.pathname === '/api/settings/all') return route.fulfill({ json: [{
       id: 1, name: 'Parking monitor', category: 'moduparking', is_active: false,
       include_waiting: false, selected_parkinglots: ['12'], cooldown_days: 0,
@@ -39,8 +44,12 @@ test('category click and drag select a single category and save KTX', async ({ p
   await expect(page.locator('#ktx_seat_class option[value="general"]')).toHaveText('일반실');
   await expect(page.locator('#parkinglots-container')).toBeHidden();
   await page.locator('#name').fill('KTX monitor');
-  await page.locator('#ktx_departure').fill('서울');
-  await page.locator('#ktx_arrival').fill('부산');
+  await page.getByRole('button', { name: '출발역 선택' }).click();
+  await expect(page.getByRole('dialog', { name: '기차역 조회' })).toBeVisible();
+  await page.locator('#station-grid').getByRole('button', { name: '서울', exact: true }).click();
+  await page.getByRole('button', { name: '도착역 선택' }).click();
+  await page.getByPlaceholder('역 이름 또는 초성 검색(서울 : ㅅㅇ)').fill('부');
+  await page.locator('#station-grid').getByRole('button', { name: '부산', exact: true }).click();
   await page.locator('#ktx_date').fill('2099-10-01');
   const saved = page.waitForRequest(r => r.url().endsWith('/api/settings') && r.method() === 'PUT');
   await page.locator('#btn-save-setting').click();
@@ -49,14 +58,18 @@ test('category click and drag select a single category and save KTX', async ({ p
   expect(body.selected_parkinglots).toEqual([]);
   expect(body.selected_parks).toEqual([]);
   expect(body.ktx_options.departure).toBe('서울');
+  expect(body.ktx_options.departure_code).toBe('0001');
+  expect(body.ktx_options.arrival_code).toBe('0020');
   expect(body.ktx_options.seat_class).toBe('either');
 });
 
-test('test action reports a failed KTX background check', async ({ page }) => {
+test('KTX refresh status UI and endpoint polling are absent', async ({ page }) => {
   await page.route('**/api/check?test=true', route => route.fulfill({ json: { ktx: {status: 'queued'} } }));
-  await page.route('**/api/ktx/status', route => route.fulfill({ json: {
-    status: 'failed', errors: [{setting_id: 1, error: 'KTX login failed'}],
-  } }));
+  const statusRequests: string[] = [];
+  page.on('request', request => { if (request.url().includes('/api/ktx/status')) statusRequests.push(request.url()); });
+  await expect(page.locator('#ktx-status-panel')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Refresh KTX Status' })).toHaveCount(0);
   await page.locator('#btn-test').click();
-  await expect(page.locator('#ktx-status-text')).toContainText('KTX login failed');
+  await expect(page.locator('#toast-container')).toContainText('KTX check queued');
+  expect(statusRequests).toEqual([]);
 });

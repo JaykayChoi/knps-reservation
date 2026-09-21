@@ -157,20 +157,6 @@ def check_cooldown(setting_id, target_date, park_name, facility_type, is_waiting
     return len(response.data) > 0
 
 
-def save_ktx_status(status):
-    client = get_supabase()
-    if not client:
-        raise RuntimeError('Supabase is not configured')
-    client.table('system_status').update({'ktx_status': status}).eq('id', 1).execute()
-
-
-def get_ktx_status():
-    client = get_supabase()
-    if not client:
-        raise RuntimeError('Supabase is not configured')
-    response = client.table('system_status').select('ktx_status').eq('id', 1).execute()
-    return response.data[0]['ktx_status'] if response.data else {'status': 'idle'}
-
 def record_notification(setting_id, target_date, park_name, facility_type, is_waiting):
     client = get_supabase()
     if not client:

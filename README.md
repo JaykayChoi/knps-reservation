@@ -18,24 +18,22 @@
 
 배포 전에 기존 DB를 백업하고 이전 마이그레이션 이후
 `supabase/migrations/20260921120000_setting_categories_ktx.sql`을 적용하세요.
-`setting_category` enum(`knps`, `moduparking`, `ktx`), `ktx_options`,
-`system_status.ktx_status`가 추가됩니다. 주차장이 들어 있는 기존 설정마다 별도
+`setting_category` enum(`knps`, `moduparking`, `ktx`)과 `ktx_options`가 추가됩니다.
+이어서 `20260921160000_remove_ktx_status.sql`을 적용합니다. 주차장이 들어 있는 기존 설정마다 별도
 Parking 설정을 만들고 `MONTHLY` 알림 이력을 옮깁니다. 원래 설정에는 KNPS 필터와
 이력이 남습니다. 활성 상태·텔레그램 설정·쿨다운을 보존하며, 분리 결과가 일반적인
 설정 생성 한도 10개를 넘어도 데이터를 버리지 않습니다. 분리 후 필요 없는 KNPS
 설정은 비활성화하세요.
 
-`backend/requirements.txt`를 설치하고 서버 환경 변수 또는 Git에서 제외되는
-`backend/.env`에 `KORAIL_ID`, `KORAIL_PASSWORD`를 설정하세요. 서버의 KTX 설정들이
-같은 계정을 사용하며, 코레일 자격 증명은 설정 DB나 브라우저에 저장·노출하지 않습니다.
-참고 프로젝트와 같은 [고정 버전 korail2 클라이언트](https://github.com/dhfhfk/korail2/tree/4b134266fff097ea0fd54e9f760cb128b6c8f878)를
-사용합니다. 비공식 연동이므로 코레일 변경, 인증 실패, 네트워크 오류는 조회 실패로 표시합니다.
+`backend/requirements.txt`를 설치하면 별도 코레일 계정 없이 익명으로 좌석을 조회합니다.
+역 선택기는 코레일 공식 역 목록을 사용하며 이름 직접 입력을 허용하지 않습니다.
+[고정 버전 korail2 클라이언트](https://github.com/dhfhfk/korail2/tree/4b134266fff097ea0fd54e9f760cb128b6c8f878)를
+읽기 전용으로 사용합니다. 코레일 변경이나 네트워크 오류는 조회 실패로 기록됩니다.
 
 기존 스케줄러에서 `/api/check`를 계속 호출하면 됩니다. KTX와 Parking은 KNPS 확률
 게이트와 무관하게 실행됩니다. KTX는 백그라운드 스레드에서 실행하며 응답에
 `ktx.status`(`queued`, `running`, `no_active_settings`)가 포함됩니다.
-`GET /api/ktx/status` 또는 화면의 **Refresh KTX Status**에서 저장된 결과와 설정별 오류를
-확인할 수 있습니다. **Test Now는 실제 텔레그램 메시지를 발송합니다.** KTX는 작업 완료 후
+별도의 KTX 상태 저장이나 새로고침 화면은 없습니다. **Test Now는 실제 텔레그램 메시지를 발송합니다.** KTX는 작업 완료 후
 발송될 수 있습니다. 자동 예약은 하지 않습니다.
 
 지속 실행되는 Python 서버에서 **워커 프로세스 1개**로 운영하세요. 예를 들어
@@ -49,7 +47,7 @@ Parking 설정을 만들고 `MONTHLY` 알림 이력을 옮깁니다. 원래 설�
 카테고리를 변경하면 관련 없는 필터를 비웁니다. KTX 옵션 예시:
 
 ```json
-{"departure":"서울","arrival":"부산","date":"2026-10-01","start_time":"08:00","end_time":"18:00","seat_class":"either"}
+{"departure":"서울","departure_code":"0001","arrival":"부산","arrival_code":"0020","date":"2026-10-01","start_time":"08:00","end_time":"18:00","seat_class":"either"}
 ```
 
 외부 요청 없이 화면 검증: `npx playwright test tests/categories.spec.ts`.

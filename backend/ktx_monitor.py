@@ -1,7 +1,6 @@
 """KTX notification orchestration and a single background job per process."""
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
-from datetime import datetime, timezone
 from threading import Lock
 import logging
 
@@ -13,7 +12,6 @@ logger = logging.getLogger(__name__)
 _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='ktx-check')
 _lock = Lock()
 _future = None
-_status = {'status': 'idle'}
 
 
 def history_key(item):
@@ -57,43 +55,22 @@ def run_check(settings_list, is_test=False):
 
 
 def _run_job(settings, is_test):
-    global _status
     try:
-        db.save_ktx_status({'status': 'running', 'started_at': datetime.now(timezone.utc).isoformat()})
         summary = run_check(settings, is_test)
-        result = {'status': 'failed' if summary['errors'] else 'completed', **summary}
         db.record_last_check_time()
+        if summary['errors']:
+            logger.error('KTX background check completed with %s setting errors', len(summary['errors']))
     except Exception as exc:
         logger.error('KTX job failed (%s)', type(exc).__name__)
-        result = {'status': 'failed', 'error': 'KTX background check failed'}
-    with _lock:
-        _status = {**result, 'finished_at': datetime.now(timezone.utc).isoformat()}
-    try:
-        db.save_ktx_status(_status)
-    except Exception as exc:
-        logger.error('Could not persist KTX job status (%s)', type(exc).__name__)
-        with _lock:
-            _status = {**_status, 'status': 'failed', 'error': 'Could not persist KTX job status',
-                       'persistence_error': True}
 
 
 def submit_check(settings, is_test=False):
-    global _future, _status
+    global _future
     watchers = [s for s in settings if s.get('category') == 'ktx' and s.get('is_active', True)]
     if not watchers:
         return {'status': 'no_active_settings'}
     with _lock:
         if _future is not None and not _future.done():
             return {'status': 'running'}
-        _status = {'status': 'running', 'started_at': datetime.now(timezone.utc).isoformat()}
         _future = _executor.submit(_run_job, deepcopy(watchers), is_test)
         return {'status': 'queued'}
-
-
-def get_status():
-    # Submission precedes the first database write; never show the previous
-    # terminal result while this process has a new job queued/running.
-    with _lock:
-        if (_future is not None and not _future.done()) or _status.get('persistence_error'):
-            return deepcopy(_status)
-    return db.get_ktx_status()

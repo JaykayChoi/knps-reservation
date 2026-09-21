@@ -43,7 +43,7 @@ def test_upstream_errors_are_not_empty_success():
         ktx_scraper.fetch_availability(OPTIONS, client=client)
 
 
-def test_expired_date_skips_login(mocker):
+def test_expired_date_skips_client_creation(mocker):
     make = mocker.patch('ktx_scraper.create_client')
     assert ktx_scraper.fetch_availability({**OPTIONS, 'date': '2000-01-01'}) == []
     make.assert_not_called()
@@ -76,13 +76,13 @@ def test_cooldown_suppresses_and_distinguishes_train_classes(mocker):
     assert ktx_monitor.history_key(item) != ktx_monitor.history_key({**item, 'seat_class': 'special'})
 
 
-def test_worker_failure_is_visible(mocker):
-    save = mocker.patch('ktx_monitor.db.save_ktx_status')
+def test_worker_has_no_persisted_refresh_status(mocker):
     mocker.patch('ktx_monitor.run_check', side_effect=RuntimeError('secret'))
+    logged = mocker.patch('ktx_monitor.logger.error')
     ktx_monitor._run_job([], False)
-    status = save.call_args.args[0]
-    assert status['status'] == 'failed'
-    assert 'secret' not in str(status)
+    assert logged.called
+    assert not hasattr(ktx_monitor, 'get_status')
+    assert not hasattr(ktx_monitor.db, 'save_ktx_status')
 
 
 def test_telegram_contains_readable_korean_and_rejects_api_error(mocker):
@@ -127,26 +127,43 @@ def test_submit_does_not_duplicate_running_job(mocker):
     executor.submit.assert_not_called()
 
 
-def test_client_uses_isolated_timeouts_without_login_output(mocker, monkeypatch):
+def test_client_is_anonymous_and_uses_isolated_timeouts(mocker):
     import korail2
-    monkeypatch.setenv('KORAIL_ID', 'test')
-    monkeypatch.setenv('KORAIL_PASSWORD', 'test')
-    mocker.patch.object(korail2.Korail, 'login', return_value=True)
+    login = mocker.patch.object(korail2.Korail, 'login')
     client = ktx_scraper.create_client()
     assert isinstance(client._session, ktx_scraper.TimeoutSession)
     assert client._session is not korail2.Korail._session
     assert not client.want_feedback
+    login.assert_not_called()
     request = mocker.patch('requests.Session.request')
     client._session.get('https://example.invalid')
     assert request.call_args.kwargs['timeout'] == (5, 15)
     client._session.close()
 
 
-def test_status_does_not_show_previous_completion_before_worker_persists(mocker):
-    future = Mock()
-    future.done.return_value = False
-    mocker.patch('ktx_monitor._future', future)
-    mocker.patch('ktx_monitor._status', {'status': 'running'})
-    persisted = mocker.patch('ktx_monitor.db.get_ktx_status', return_value={'status': 'completed'})
-    assert ktx_monitor.get_status()['status'] == 'running'
-    persisted.assert_not_called()
+def test_refresh_status_route_is_removed():
+    from app import app
+    assert app.test_client().get('/api/ktx/status').status_code == 404
+
+
+def test_official_station_list_is_normalized(mocker):
+    session = Mock()
+    session.get.return_value.json.return_value = {'stns': {'stn': [
+        {'stn_cd': '0001', 'stn_nm': '서울', 'area': '0', 'major': '1'},
+        {'stn_cd': '0020', 'stn_nm': '부산', 'area': '9'},
+    ]}}
+    stations = ktx_scraper.fetch_stations(session=session)
+    assert stations == [
+        {'code': '0001', 'name': '서울', 'area': '0', 'major': 1},
+        {'code': '0020', 'name': '부산', 'area': '9', 'major': None},
+    ]
+    session.get.assert_called_once_with(ktx_scraper.STATIONS_URL)
+
+
+def test_station_route_returns_official_picker_data(mocker):
+    from app import app
+    stations = [{'code': '0001', 'name': '서울', 'area': '0', 'major': 1}]
+    mocker.patch('app.ktx_scraper.fetch_stations', return_value=stations)
+    response = app.test_client().get('/api/ktx/stations')
+    assert response.status_code == 200
+    assert response.json == stations

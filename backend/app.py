@@ -4,6 +4,7 @@ import db
 import scraper
 import modu_scraper
 import ktx_monitor
+import ktx_scraper
 import notifier
 import os
 import random
@@ -226,12 +227,13 @@ def run_parking_check(all_settings, is_test=False):
     return summary
 
 
-@app.route("/api/ktx/status", methods=["GET"])
-def ktx_status():
+@app.route("/api/ktx/stations", methods=["GET"])
+def ktx_stations():
     try:
-        return jsonify(ktx_monitor.get_status())
+        return jsonify(ktx_scraper.fetch_stations())
     except Exception:
-        return jsonify({'error': 'Could not load KTX status'}), 503
+        logger.exception('Could not load Korail station list')
+        return jsonify({'error': 'Could not load Korail station list'}), 503
 
 
 @app.route("/api/check", methods=["GET", "POST"])
