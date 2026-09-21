@@ -210,10 +210,11 @@ def run_parking_check(all_settings, is_test=False):
             logger.info(f"Sending parking notification for {len(to_notify)} passes to {chat_id}. is_test={is_test}")
             if notifier.send_parking_notification(token, chat_id, to_notify, is_test=is_test):
                 summary["notified"] += len(to_notify)
-                for item in to_notify:
-                    db.record_notification(
-                        s_id, PARKING_HISTORY_DATE, item["lot_name"], item["ticket_name"], False
-                    )
+                if cooldown_days > 0:
+                    for item in to_notify:
+                        db.record_notification(
+                            s_id, PARKING_HISTORY_DATE, item["lot_name"], item["ticket_name"], False
+                        )
     except Exception as e:
         # 주차장 확인 실패가 국립공원 확인을 막지 않도록 격리한다.
         logger.exception(f"Parking check failed: {e}")
@@ -224,6 +225,15 @@ def run_parking_check(all_settings, is_test=False):
 @app.route("/api/check", methods=["GET", "POST"])
 def check_reservations():
     is_test = request.args.get("test") == "true"
+
+    # Clear the previous day's cooldown history at the start of the KST day.
+    check_time_kst = datetime.now(KST)
+    if check_time_kst.hour == 0 and check_time_kst.minute == 0:
+        try:
+            db.truncate_notification_history()
+        except Exception:
+            logger.exception("Failed to truncate notification history at midnight")
+            return jsonify({"error": "Failed to truncate notification history"}), 500
 
     # 주차장 월정기권은 스케줄/확률 게이트와 무관하게 매 호출마다 확인한다.
     try:
@@ -363,10 +373,10 @@ def check_reservations():
                         is_wait_new = True
                 
                 if is_res_new or is_wait_new:
-                    # Store which part triggered the notification for recording later
-                    res["_is_res_new"] = is_res_new
-                    res["_is_wait_new"] = is_wait_new
-                    to_notify.append(res)
+                    # Keep the originating setting when the same facility matches several filters.
+                    notification = {**res, "_setting_id": s_id,
+                                    "_is_res_new": is_res_new, "_is_wait_new": is_wait_new}
+                    to_notify.append(notification)
                     if is_res_new:
                         total_res_new += 1
                     if is_wait_new:
@@ -416,16 +426,9 @@ def check_reservations():
                     telegram_sends_succeeded += 1
                     telegram_items_sent += len(telegram_config["notifications"])
                     for res in telegram_config["notifications"]:
-                        # Find the setting_id for this notification group
-                        # Notifications are already grouped by telegram config, but they might come from multiple settings
-                        # We need to find the specific setting_id for this reservation item.
-                        item_s_id = None
-                        for group in all_notifications:
-                            if any(n["date"] == res["date"] and n["park_name"] == res["park_name"] and n["facility_type"] == res["facility_type"] for n in group["notifications"]):
-                                item_s_id = group["setting_id"]
-                                break
-                        
-                        if item_s_id:
+                        item_s_id = res["_setting_id"]
+                        item_setting = next((s for s in all_settings if s.get("id") == item_s_id), None)
+                        if item_setting and item_setting.get("cooldown_days", 3) > 0:
                             if res.get("_is_res_new"):
                                 db.record_notification(item_s_id, res["date"], res["park_name"], res["facility_type"], False)
                             if res.get("_is_wait_new"):

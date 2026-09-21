@@ -248,4 +248,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Supabase for the excellent PostgreSQL platform
 - Telegram for the Bot API
 
+### Notification history at midnight
+
+Apply `supabase/migrations/20260921_truncate_notification_history.sql` before deploying this backend change. A `/api/check` request received during 00:00:00–00:00:59 KST truncates `notification_history` before checking availability. The database function rejects calls outside that minute. Settings with `cooldown_days` set to `0` send notifications without inserting history rows.
+
 

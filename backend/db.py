@@ -180,6 +180,14 @@ def record_notification(setting_id, target_date, park_name, facility_type, is_wa
     }
     client.table("notification_history").insert(data).execute()
 
+
+def truncate_notification_history():
+    """Clear all cooldown history using the database's truncate function."""
+    client = get_supabase()
+    if not client:
+        raise RuntimeError("Supabase is not configured")
+    client.rpc("truncate_notification_history").execute()
+
 def delete_old_notifications(days=7):
     """Delete notification_history records older than specified days.
     

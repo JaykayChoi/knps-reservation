@@ -232,5 +232,9 @@ CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
 ## 📄 라이선스
 이 프로젝트는 MIT 라이선스 하에 있습니다. 자세한 내용은 LICENSE 파일을 참조하세요.
 
+### 자정 알림 기록 초기화
+
+백엔드 변경을 배포하기 전에 `supabase/migrations/20260921_truncate_notification_history.sql`을 적용하세요. 한국시간 00:00:00~00:00:59에 들어온 `/api/check` 요청은 가용 여부 확인 전에 `notification_history`를 비웁니다. 데이터베이스 함수는 이 시간대 밖의 호출을 거부합니다. `cooldown_days`가 `0`인 설정은 알림을 보내도 기록을 저장하지 않습니다.
+
 ---
 
