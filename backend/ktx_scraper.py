@@ -14,10 +14,23 @@ class KtxError(RuntimeError):
 
 
 class TimeoutSession(requests.Session):
+    def __init__(self):
+        super().__init__()
+        self.standing_availability = {}
+
     def request(self, method, url, **kwargs):
         kwargs.setdefault('timeout', (5, 15))
         response = super().request(method, url, **kwargs)
         response.raise_for_status()
+        if 'seatMovie.ScheduleView' in url:
+            try:
+                infos = response.json().get('trn_infos', {}).get('trn_info', [])
+                self.standing_availability = {
+                    (str(item.get('h_trn_no')), str(item.get('h_dpt_tm'))): item.get('h_stnd_rsv_cd') == '11'
+                    for item in infos
+                }
+            except (ValueError, TypeError, AttributeError):
+                self.standing_availability = {}
         return response
 
 
@@ -75,6 +88,13 @@ def fetch_availability(options, *, client=None):
         cursor = max(cursor, now.strftime('%H%M%S'))
     if cursor > end:
         return []
+    selected = options.get('seat_classes')
+    if selected is None:
+        selected = {
+            'general': ['general'], 'special': ['special'],
+            'either': ['general', 'special']
+        }.get(options.get('seat_class'), [])
+    selected = set(selected)
     owned = client is None
     rows, seen = [], set()
     try:
@@ -93,9 +113,17 @@ def fetch_availability(options, *, client=None):
             for train in trains:
                 if train.dep_date != date or not cursor <= train.dep_time <= end:
                     continue
+                standing_method = getattr(train, 'has_standing_seat', None)
+                if callable(standing_method):
+                    standing = standing_method()
+                else:
+                    standing = getattr(getattr(client, '_session', None),
+                                       'standing_availability', {}).get(
+                                           (train.train_no, train.dep_time), False)
                 for seat_class, available in [('general', train.has_general_seat()),
-                                               ('special', train.has_special_seat())]:
-                    if not available or options['seat_class'] not in (seat_class, 'either'):
+                                               ('special', train.has_special_seat()),
+                                               ('standing', standing)]:
+                    if not available or seat_class not in selected:
                         continue
                     key = (train.train_no, train.dep_time, seat_class)
                     if key in seen:

@@ -12,7 +12,7 @@ A real-time monitoring system for Korea National Park Service (KNPS) campsite av
 ## 🚀 Features
 
 - **Monitor categories**: Select KNPS, Parking or KTX by clicking or dragging a category button at the top of the setting editor. Each setting monitors one category.
-- **KTX alerts**: Select stations, one travel date, an inclusive departure-time window, and general/special/either class. Seat availability is for one adult; purchase tickets in KorailTalk.
+- **KTX alerts**: Select stations, one travel date, an inclusive departure-time window, and any combination of general, special and standing availability. Availability is for one adult; purchase tickets on Korail.
 
 ### Category migration and KTX setup
 
@@ -51,8 +51,11 @@ Settings APIs accept `category` and `ktx_options`. Partial updates preserve
 the category; switching categories clears unrelated filters. KTX options:
 
 ```json
-{"departure":"서울","departure_code":"0001","arrival":"부산","arrival_code":"0020","date":"2026-10-01","start_time":"08:00","end_time":"18:00","seat_class":"either"}
+{"departure":"서울","departure_code":"0001","arrival":"부산","arrival_code":"0020","date":"2026-10-01","start_time":"08:00","end_time":"18:00","seat_classes":["general","special","standing"]}
 ```
+
+Legacy `seat_class` settings remain valid and are mapped to equivalent checkboxes by
+the server and UI. Existing rows are not rewritten during deployment.
 
 Offline browser check: `npx playwright test tests/categories.spec.ts` (all requests
 intercepted). From `backend/`, run `python -m pytest tests --ignore=tests/test_integration.py`

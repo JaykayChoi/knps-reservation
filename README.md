@@ -12,7 +12,7 @@
 ## 🚀 기능
 
 - **카테고리별 설정**: 편집 모달 상단에서 KNPS, Parking, KTX 버튼을 클릭하거나 선택 영역으로 드래그합니다. 설정 하나는 한 종류만 감시합니다.
-- **KTX 좌석 알림**: 출발역·도착역, 탑승일, 출발 시간 범위(양 끝 포함), 일반실·특실·둘 다를 선택합니다. 성인 1명 좌석 기준이며 예약은 코레일톡에서 진행합니다.
+- **KTX 좌석 알림**: 출발역·도착역, 탑승일, 출발 시간 범위(양 끝 포함)를 지정하고 일반실·특실·입석을 체크박스로 복수 선택합니다. 성인 1명 기준이며 예약은 코레일에서 진행합니다.
 
 ### 카테고리 마이그레이션 및 KTX 설정
 
@@ -49,8 +49,11 @@ Parking 설정을 만들고 `MONTHLY` 알림 이력을 옮깁니다. 원래 설�
 카테고리를 변경하면 관련 없는 필터를 비웁니다. KTX 옵션 예시:
 
 ```json
-{"departure":"서울","departure_code":"0001","arrival":"부산","arrival_code":"0020","date":"2026-10-01","start_time":"08:00","end_time":"18:00","seat_class":"either"}
+{"departure":"서울","departure_code":"0001","arrival":"부산","arrival_code":"0020","date":"2026-10-01","start_time":"08:00","end_time":"18:00","seat_classes":["general","special","standing"]}
 ```
+
+기존 `seat_class` 설정은 그대로 유효하며 서버와 화면에서 같은 의미의 체크박스로 자동 변환합니다.
+기존 행을 일괄 수정하지 않으므로 배포 중에도 설정 데이터가 손상되지 않습니다.
 
 외부 요청 없이 화면 검증: `npx playwright test tests/categories.spec.ts`.
 백엔드는 `backend/`에서 `python -m pytest tests --ignore=tests/test_integration.py`와

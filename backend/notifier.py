@@ -101,7 +101,7 @@ def send_ktx_notification(token, chat_id, trains, is_test=False):
         f"예약 가능 좌석 {len(trains)}건\n\n"
     )
     for train in trains:
-        seat = '일반실' if train['seat_class'] == 'general' else '특실'
+        seat = {'general': '일반실', 'special': '특실', 'standing': '입석'}[train['seat_class']]
         departure = train['departure_time']
         arrival = train['arrival_time']
         text += (

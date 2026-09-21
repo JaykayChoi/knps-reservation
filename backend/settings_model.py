@@ -56,18 +56,36 @@ def normalize_settings(data, existing=None):
         result['ktx_options'] = {}
     else:
         options = result.get('ktx_options')
-        required = {'departure', 'arrival', 'date', 'start_time', 'end_time', 'seat_class'}
+        required = {'departure', 'arrival', 'date', 'start_time', 'end_time'}
         station_codes = {'departure_code', 'arrival_code'}
+        seat_fields = {'seat_class', 'seat_classes'}
         if (not isinstance(options, dict) or not required.issubset(options)
-                or set(options) - required - station_codes):
-            raise ValueError('KTX requires departure, arrival, date, start_time, end_time and seat_class')
+                or set(options) - required - station_codes - seat_fields
+                or not seat_fields.intersection(options)):
+            raise ValueError('KTX requires departure, arrival, date, times and seat classes')
         if bool(station_codes & set(options)) and not station_codes.issubset(options):
             raise ValueError('KTX departure and arrival station codes must be provided together')
         options = dict(options)
-        for field in required | (station_codes & set(options)):
+        for field in required | (station_codes & set(options)) | ({'seat_class'} & set(options)):
             if not isinstance(options[field], str):
                 raise ValueError(f'KTX {field} must be text')
             options[field] = options[field].strip()
+        allowed_seats = {'general', 'special', 'standing'}
+        if 'seat_classes' in options:
+            seats = options['seat_classes']
+            if (not isinstance(seats, list) or not seats
+                    or any(not isinstance(seat, str) or seat not in allowed_seats for seat in seats)):
+                raise ValueError('KTX seat_classes must select general, special or standing')
+            seats = list(dict.fromkeys(seats))
+        else:
+            legacy = options['seat_class']
+            legacy_seats = {'general': ['general'], 'special': ['special'],
+                            'either': ['general', 'special']}
+            if legacy not in legacy_seats:
+                raise ValueError('KTX seat_class must be general, special or either')
+            seats = legacy_seats[legacy]
+        options['seat_classes'] = seats
+        options.pop('seat_class', None)
         for field in station_codes & set(options):
             if not re.fullmatch(r'\d{4}', options[field]):
                 raise ValueError('KTX station codes must contain four digits')
@@ -88,7 +106,5 @@ def normalize_settings(data, existing=None):
             raise ValueError('KTX requires a valid YYYY-MM-DD date and HH:MM times') from None
         if options['start_time'] > options['end_time']:
             raise ValueError('KTX end time must not precede start time')
-        if options['seat_class'] not in ('general', 'special', 'either'):
-            raise ValueError('KTX seat_class must be general, special or either')
         result['ktx_options'] = options
     return result

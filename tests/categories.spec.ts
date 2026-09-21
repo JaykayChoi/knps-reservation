@@ -41,7 +41,7 @@ test('category click and drag select a single category and save KTX', async ({ p
   await expect(page.locator('#category')).toHaveValue('moduparking');
   await page.locator('[data-category="ktx"]').click();
   await expect(page.locator('#ktx-section')).toBeVisible();
-  await expect(page.locator('#ktx_seat_class option[value="general"]')).toHaveText('일반실');
+  await expect(page.locator('input[name="ktx_seat_classes"]')).toHaveCount(3);
   await expect(page.locator('#parkinglots-container')).toBeHidden();
   await page.locator('#name').fill('KTX monitor');
   await page.getByRole('button', { name: '출발역 선택' }).click();
@@ -50,6 +50,8 @@ test('category click and drag select a single category and save KTX', async ({ p
   await page.getByRole('button', { name: '도착역 선택' }).click();
   await page.getByPlaceholder('역 이름 또는 초성 검색(서울 : ㅅㅇ)').fill('부');
   await page.locator('#station-grid').getByRole('button', { name: '부산', exact: true }).click();
+  await page.locator('input[name="ktx_seat_classes"][value="special"]').uncheck();
+  await page.locator('input[name="ktx_seat_classes"][value="standing"]').check();
   await page.locator('#ktx_date').fill('2099-10-01');
   const saved = page.waitForRequest(r => r.url().endsWith('/api/settings') && r.method() === 'PUT');
   await page.locator('#btn-save-setting').click();
@@ -60,7 +62,8 @@ test('category click and drag select a single category and save KTX', async ({ p
   expect(body.ktx_options.departure).toBe('서울');
   expect(body.ktx_options.departure_code).toBe('0001');
   expect(body.ktx_options.arrival_code).toBe('0020');
-  expect(body.ktx_options.seat_class).toBe('either');
+  expect(body.ktx_options.seat_classes).toEqual(['general', 'standing']);
+  expect(body.ktx_options.seat_class).toBeUndefined();
 });
 
 test('KTX refresh status UI and endpoint polling are absent', async ({ page }) => {
@@ -72,4 +75,17 @@ test('KTX refresh status UI and endpoint polling are absent', async ({ page }) =
   await page.locator('#btn-test').click();
   await expect(page.locator('#toast-container')).toContainText('KTX check queued');
   expect(statusRequests).toEqual([]);
+});
+
+test('legacy KTX seat class opens as equivalent checkboxes', async ({ page }) => {
+  await page.route('**/api/settings/all', route => route.fulfill({ json: [{
+    id: 6, name: 'Legacy KTX', category: 'ktx', is_active: true, cooldown_days: 1,
+    ktx_options: { departure: '서울', arrival: '부산', date: '2099-10-01',
+      start_time: '08:00', end_time: '18:00', seat_class: 'either' },
+  }] }));
+  await page.reload();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  await expect(page.locator('input[name="ktx_seat_classes"][value="general"]')).toBeChecked();
+  await expect(page.locator('input[name="ktx_seat_classes"][value="special"]')).toBeChecked();
+  await expect(page.locator('input[name="ktx_seat_classes"][value="standing"]')).not.toBeChecked();
 });

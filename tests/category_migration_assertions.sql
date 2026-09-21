@@ -20,5 +20,7 @@ BEGIN
     END;
     INSERT INTO user_settings(id, category, selected_parks, selected_types, ktx_options)
     VALUES (4, 'ktx', '{}', '{}', '{"departure":"서울","arrival":"부산","date":"2099-10-01","start_time":"08:00","end_time":"18:00","seat_class":"either"}');
+    INSERT INTO user_settings(id, category, selected_parks, selected_types, ktx_options)
+    VALUES (5, 'ktx', '{}', '{}', '{"departure":"서울","arrival":"부산","date":"2099-10-01","start_time":"08:00","end_time":"18:00","seat_classes":["general","standing"]}');
 END $$;
 SELECT 'Category migration assertions passed' AS result;

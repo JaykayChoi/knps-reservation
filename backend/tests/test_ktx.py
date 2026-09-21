@@ -12,11 +12,12 @@ OPTIONS = dict(departure='서울', arrival='부산', date='2099-10-01',
                start_time='08:00', end_time='18:00', seat_class='either')
 
 
-def train(no='001', time='090000', general=True, special=False):
+def train(no='001', time='090000', general=True, special=False, standing=False):
     return SimpleNamespace(train_no=no, dep_date='20991001', dep_time=time,
                            arr_time='120000', dep_name='서울', arr_name='부산',
                            train_type_name='KTX', has_general_seat=lambda: general,
-                           has_special_seat=lambda: special)
+                           has_special_seat=lambda: special,
+                           has_standing_seat=lambda: standing)
 
 
 def test_paginates_past_sold_out_trains_and_filters_classes():
@@ -34,6 +35,27 @@ def test_window_and_selected_class():
     client.search_train.return_value = [train('1', '080000', special=True), train('2', '180100')]
     rows = ktx_scraper.fetch_availability({**OPTIONS, 'seat_class': 'special'}, client=client)
     assert len(rows) == 1 and rows[0]['seat_class'] == 'special'
+
+
+def test_checkbox_classes_include_standing_and_exclude_unchecked_seats():
+    client = Mock()
+    client.search_train.side_effect = [[train(general=True, special=True, standing=True)], []]
+    rows = ktx_scraper.fetch_availability({
+        **OPTIONS, 'seat_classes': ['general', 'standing']
+    }, client=client)
+    assert [row['seat_class'] for row in rows] == ['general', 'standing']
+
+
+def test_standing_uses_raw_schedule_flag_captured_by_session():
+    item = train(general=False, special=False)
+    del item.has_standing_seat
+    client = Mock()
+    client._session.standing_availability = {('001', '090000'): True}
+    client.search_train.side_effect = [[item], []]
+    rows = ktx_scraper.fetch_availability({
+        **OPTIONS, 'seat_classes': ['standing']
+    }, client=client)
+    assert [row['seat_class'] for row in rows] == ['standing']
 
 
 def test_upstream_errors_are_not_empty_success():
@@ -144,6 +166,15 @@ def test_telegram_combines_multiple_trains_in_one_message(mocker):
     text = post.call_args.kwargs['json']['text']
     assert 'KTX 001' in text and 'KTX 003' in text
     assert '일반실 예약 가능' in text and '특실 예약 가능' in text
+
+
+def test_telegram_labels_standing_separately(mocker):
+    post = mocker.patch('notifier.requests.post')
+    post.return_value.json.return_value = {'ok': True}
+    item = dict(date='20991001', departure='서울', arrival='부산', train_no='001',
+                departure_time='090000', arrival_time='120000', seat_class='standing')
+    assert notifier.send_ktx_notification('test', 'test', [item])
+    assert '입석 예약 가능' in post.call_args.kwargs['json']['text']
 
 
 def test_category_dispatch_runs_before_knps_probability_gate(mocker, monkeypatch):

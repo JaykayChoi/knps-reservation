@@ -26,15 +26,20 @@ def test_invalid_settings(data):
 def test_ktx_validation():
     options = dict(departure='서울', arrival='부산', date='2026-10-01',
                    start_time='08:00', end_time='18:00', seat_class='either')
-    assert normalize_settings({'category': 'ktx', 'ktx_options': options})['ktx_options'] == options
+    migrated = normalize_settings({'category': 'ktx', 'ktx_options': options})['ktx_options']
+    assert migrated['seat_classes'] == ['general', 'special']
+    assert 'seat_class' not in migrated
     coded = {**options, 'departure_code': '0001', 'arrival_code': '0020'}
-    assert normalize_settings({'category': 'ktx', 'ktx_options': coded})['ktx_options'] == coded
+    assert normalize_settings({'category': 'ktx', 'ktx_options': coded})['ktx_options']['seat_classes'] == ['general', 'special']
     with pytest.raises(ValueError):
         normalize_settings({'category': 'ktx', 'ktx_options': {**options, 'departure_code': '0001'}})
+    checkbox_options = {k: v for k, v in options.items() if k != 'seat_class'} | {'seat_classes': ['general', 'standing']}
+    assert normalize_settings({'category': 'ktx', 'ktx_options': checkbox_options})['ktx_options'] == checkbox_options
     for changes in ({'arrival': '서울'}, {'date': '2026-02-30'}, {'end_time': '07:00'},
-                    {'seat_class': 'standing'}, {'start_time': '25:00'}):
+                    {'seat_classes': []}, {'seat_classes': ['standing', 'invalid']}, {'start_time': '25:00'}):
         with pytest.raises(ValueError):
-            normalize_settings({'category': 'ktx', 'ktx_options': {**options, **changes}})
+            candidate = {**checkbox_options, **changes}
+            normalize_settings({'category': 'ktx', 'ktx_options': candidate})
 
 
 @pytest.mark.parametrize('data', [None, [], 'bad'])
