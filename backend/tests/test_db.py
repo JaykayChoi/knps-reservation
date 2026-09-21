@@ -347,99 +347,47 @@ class TestCreateSettings:
         test_settings = {"weeks_ahead": 8}
         
         # Call function
-        result = db.create_settings(test_settings)
-        
-        # Should retry without new columns
-        assert mock_table.insert.call_count == 2
-        assert result == mock_response.data[0]
+        with pytest.raises(Exception, match="does not exist"):
+            db.create_settings(test_settings)
+        # Never silently drop category-specific data on an outdated schema.
+        assert mock_table.insert.call_count == 1
     def test_create_settings_no_client(self, mocker):
         """Test that None is returned when no Supabase client is available."""
         mocker.patch('db.get_supabase', return_value=None)
         result = db.create_settings({"name": "Test"})
         assert result is None
 class TestUpdateSettings:
-    """Tests for update_settings() function."""
-    def test_update_settings_with_specific_id(self, mocker):
-        """Test updating settings with a specific ID."""
-        # Mock Supabase client
-        mock_client = Mock()
-        mock_table = Mock()
-        mock_client.table.return_value = mock_table
-        mocker.patch('db.get_supabase', return_value=mock_client)
-        # Test data
-        test_settings = {
-            "selected_days": ["Mon", "Tue"],
-            "selected_types": ["자동차야영장"],
-            "cooldown_days": 5
-        }
-        
-        # Call function with specific ID
-        db.update_settings(test_settings, setting_id=2)
-        
-        # Verify update was called with specific ID
-        mock_client.table.assert_called_once_with("user_settings")
-        mock_table.update.assert_called_once_with(test_settings)
-        mock_table.update().eq.assert_called_once_with("id", 2)
-        mock_table.update().eq().execute.assert_called_once()
-    
-    def test_update_settings_without_id_active_exists(self, mocker):
-        """Test updating first active setting when no ID is provided."""
-        # Mock Supabase client
-        mock_client = Mock()
-        mock_response = Mock()
-        mock_response.data = [{"id": 3}]
-        
-        mock_table = Mock()
-        mock_table.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_response
-        mock_client.table.return_value = mock_table
-        
-        mocker.patch('db.get_supabase', return_value=mock_client)
-        
-        # Test data
-        test_settings = {"weeks_ahead": 4}
-        
-        # Call function without ID
-        db.update_settings(test_settings)
-        
-        # Should find first active setting and update it
-        mock_table.select.assert_called_with("id")
-        mock_table.select().eq.assert_called_with("is_active", True)
-        mock_table.select().eq().order.assert_called_with("created_at")
-        mock_table.select().eq().order().limit.assert_called_with(1)
-        
-        # Should update with ID 3
-        mock_table.update.assert_called_once_with(test_settings)
-        mock_table.update().eq.assert_called_once_with("id", 3)
-    
-    def test_update_settings_without_id_backward_compatibility(self, mocker):
-        """Test backward compatibility when is_active column doesn't exist."""
-        # Mock Supabase client
-        mock_client = Mock()
-        mock_response = Mock()
-        mock_response.data = [{"id": 1}]
-        mock_table = Mock()
-        # First call raises exception, second succeeds
-        # Need to create proper mock chain for the exception
-        mock_chain1 = Mock()
-        mock_chain1.execute.side_effect = Exception("column \"is_active\" does not exist")
-        mock_table.select.return_value.eq.return_value.order.return_value.limit.return_value = mock_chain1
-        mock_chain2 = Mock()
-        mock_chain2.execute.return_value = mock_response
-        mock_table.select.return_value.order.return_value.limit.return_value = mock_chain2
-        mock_client.table.return_value = mock_table
-        
-        mocker.patch('db.get_supabase', return_value=mock_client)
-        # Test data
-        test_settings = {"weeks_ahead": 4}
-        # Call function without ID
-        db.update_settings(test_settings)
-        # Should fall back to getting first setting by id
-        assert mock_table.select.call_count == 2
-        mock_table.update.assert_called_once_with(test_settings)
-        mock_table.update().eq.assert_called_once_with("id", 1)
-        """Test that update does nothing when no Supabase client is available."""
+    def test_partial_update_preserves_parking_category(self, mocker):
+        client = Mock()
+        mocker.patch('db.get_supabase', return_value=client)
+        mocker.patch('db.get_settings', return_value={
+            'id': 2, 'category': 'moduparking', 'selected_parkinglots': ['12']})
+        db.update_settings({'is_active': False}, 2)
+        payload = client.table().update.call_args.args[0]
+        assert payload['category'] == 'moduparking'
+        assert payload['selected_parkinglots'] == ['12']
+        assert payload['is_active'] is False
+        client.table().update().eq.assert_called_once_with('id', 2)
+
+    def test_legacy_route_merges_existing_setting(self, mocker):
+        client = Mock()
+        mocker.patch('db.get_supabase', return_value=client)
+        client.table().select().eq().order().limit().execute.return_value = Mock(data=[{
+            'id': 3, 'category': 'moduparking', 'selected_parkinglots': ['13']}])
+        db.update_settings({'name': 'Renamed'})
+        assert client.table().update.call_args.args[0]['selected_parkinglots'] == ['13']
+        client.table().update().eq.assert_called_once_with('id', 3)
+
+    def test_missing_database_is_error(self, mocker):
         mocker.patch('db.get_supabase', return_value=None)
-        db.update_settings({"weeks_ahead": 4})
+        with pytest.raises(RuntimeError):
+            db.update_settings({'is_active': False})
+
+    def test_missing_setting_is_error(self, mocker):
+        mocker.patch('db.get_supabase', return_value=Mock())
+        mocker.patch('db.get_settings', return_value={})
+        with pytest.raises(ValueError):
+            db.update_settings({'is_active': False}, 99)
 
 class TestCheckCooldown:
     """Tests for check_cooldown() function."""

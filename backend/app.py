@@ -3,6 +3,7 @@ from flask_cors import CORS
 import db
 import scraper
 import modu_scraper
+import ktx_monitor
 import notifier
 import os
 import random
@@ -45,6 +46,8 @@ def update_settings():
         data = request.json
         db.update_settings(data)
         return jsonify({"success": True})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
         logger.exception("Error in POST /api/settings")
         return jsonify({"error": str(e)}), 500
@@ -75,6 +78,8 @@ def update_setting_by_id(setting_id):
         data = request.json
         db.update_settings(data, setting_id)
         return jsonify({"success": True})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
         logger.exception(f"Error in PUT /api/settings/{setting_id}")
         return jsonify({"error": str(e)}), 500
@@ -99,7 +104,6 @@ def delete_setting(setting_id):
 def create_setting():
     try:
         data = request.json
-        logger.info(f"Creating new setting with data: {data}")
         new_setting = db.create_settings(data)
         if not new_setting:
             logger.error("create_settings returned None")
@@ -170,7 +174,7 @@ def run_parking_check(all_settings, is_test=False):
     """
     summary = {"lots_checked": 0, "available": 0, "notified": 0}
     try:
-        watchers = [s for s in all_settings if s.get("selected_parkinglots")]
+        watchers = [s for s in all_settings if s.get("category") == "moduparking" and s.get("selected_parkinglots")]
         if not watchers:
             return summary
 
@@ -207,7 +211,7 @@ def run_parking_check(all_settings, is_test=False):
             if not to_notify:
                 continue
 
-            logger.info(f"Sending parking notification for {len(to_notify)} passes to {chat_id}. is_test={is_test}")
+            logger.info(f"Sending parking notification for {len(to_notify)} passes. is_test={is_test}")
             if notifier.send_parking_notification(token, chat_id, to_notify, is_test=is_test):
                 summary["notified"] += len(to_notify)
                 if cooldown_days > 0:
@@ -220,6 +224,14 @@ def run_parking_check(all_settings, is_test=False):
         logger.exception(f"Parking check failed: {e}")
 
     return summary
+
+
+@app.route("/api/ktx/status", methods=["GET"])
+def ktx_status():
+    try:
+        return jsonify(ktx_monitor.get_status())
+    except Exception:
+        return jsonify({'error': 'Could not load KTX status'}), 503
 
 
 @app.route("/api/check", methods=["GET", "POST"])
@@ -240,7 +252,8 @@ def check_reservations():
         active_settings = db.get_settings()
     except Exception:
         logger.exception("Failed to load settings for parking check")
-        active_settings = []
+        return jsonify({"error": "Failed to load monitor settings"}), 500
+    ktx_summary = ktx_monitor.submit_check(active_settings, is_test=is_test)
     parking_summary = run_parking_check(active_settings, is_test=is_test)
     logger.info(
         f"[PARKING SUMMARY] lots_checked={parking_summary['lots_checked']} "
@@ -265,6 +278,7 @@ def check_reservations():
                 "kst_hour": kst_hour,
                 "probability": prob,
                 "parking": parking_summary,
+                "ktx": ktx_summary,
             })
 
     check_start_ts = datetime.now()
@@ -278,7 +292,7 @@ def check_reservations():
     try:
         # Clean up old notifications (older than 7 days)
         db.delete_old_notifications(7)
-        all_settings = db.get_settings()  # Returns all active settings
+        all_settings = active_settings  # Use one category/settings snapshot for this run
         if not all_settings:
             logger.info("[CHECK SUMMARY] No active settings found")
             return jsonify({"error": "No active settings found", "parking": parking_summary}), 404
@@ -287,6 +301,8 @@ def check_reservations():
         total_available = 0
 
         for settings in all_settings:
+            if settings.get("category", "knps") != "knps":
+                continue
             # 1. Get target dates based on date_mode
             date_mode = settings.get("date_mode", "weekday")
             
@@ -413,7 +429,7 @@ def check_reservations():
             # Send notifications for each Telegram configuration
             success_count = 0
             for key, telegram_config in notifications_by_telegram.items():
-                logger.info(f"Sending notification for {len(telegram_config['notifications'])} items to {telegram_config['chat_id']}. is_test={is_test}")
+                logger.info(f"Sending notification for {len(telegram_config['notifications'])} items. is_test={is_test}")
                 telegram_sends_attempted += 1
                 success = notifier.send_telegram_notification(
                     telegram_config["token"],
@@ -450,6 +466,7 @@ def check_reservations():
                     "count": total_available,
                     "settings_checked": len(all_settings),
                     "parking": parking_summary,
+                    "ktx": ktx_summary,
                 })
             else:
                 logger.warning(
@@ -475,6 +492,7 @@ def check_reservations():
             "count": 0,
             "settings_checked": len(all_settings),
             "parking": parking_summary,
+            "ktx": ktx_summary,
         })
     except Exception as e:
         elapsed = (datetime.now() - check_start_ts).total_seconds()

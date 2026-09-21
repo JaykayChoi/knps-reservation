@@ -1,5 +1,6 @@
 import os
 from supabase import create_client, Client
+from settings_model import normalize_settings
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -56,6 +57,8 @@ def get_all_settings():
 
 def create_settings(settings):
     """Create a new settings row."""
+    if not isinstance(settings, dict):
+        raise ValueError('Settings must be an object')
     client = get_supabase()
     if not client:
         return None
@@ -103,41 +106,29 @@ def create_settings(settings):
     # Add the calculated ID to the settings
     merged_settings["id"] = next_id
     
-    try:
-        response = client.table("user_settings").insert(merged_settings).execute()
-        if response.data:
-            return response.data[0]
-        return None
-    except Exception as e:
-        error_str = str(e)
-        if any(col in error_str for col in ["name", "date_mode", "is_active", "include_waiting", "selected_parkinglots", "created_at", "updated_at"]):
-            for col in ["name", "date_mode", "is_active", "include_waiting", "selected_parkinglots", "created_at", "updated_at"]:
-                merged_settings.pop(col, None)
-            response = client.table("user_settings").insert(merged_settings).execute()
-            if response.data:
-                return response.data[0]
-        raise
+    merged_settings = normalize_settings({k: v for k, v in merged_settings.items() if k != "id"})
+    merged_settings["id"] = next_id
+    response = client.table("user_settings").insert(merged_settings).execute()
+    return response.data[0] if response.data else None
+
+
 def update_settings(settings, setting_id=None):
     client = get_supabase()
     if not client:
-        return
-    # If setting_id is provided, update specific setting
-    if setting_id:
-        client.table("user_settings").update(settings).eq("id", setting_id).execute()
+        raise RuntimeError("Supabase is not configured")
+    if setting_id is None:
+        response = client.table("user_settings").select("*").eq("is_active", True).order("created_at").limit(1).execute()
+        if not response.data:
+            raise ValueError("No active setting found")
+        existing = response.data[0]
+        setting_id = existing["id"]
     else:
-        # For backward compatibility, update first active setting or first setting
-        try:
-            response = client.table("user_settings").select("id").eq("is_active", True).order("created_at").limit(1).execute()
-            if response.data:
-                client.table("user_settings").update(settings).eq("id", response.data[0]["id"]).execute()
-        except Exception as e:
-            # If is_active column doesn't exist, update first setting
-            if "is_active" in str(e):
-                response = client.table("user_settings").select("id").order("id").limit(1).execute()
-                if response.data:
-                    client.table("user_settings").update(settings).eq("id", response.data[0]["id"]).execute()
-            else:
-                raise
+        existing = get_settings(setting_id)
+        if not existing:
+            raise ValueError("Setting not found")
+    normalized = normalize_settings(settings, existing)
+    client.table("user_settings").update(normalized).eq("id", setting_id).execute()
+
 
 def check_cooldown(setting_id, target_date, park_name, facility_type, is_waiting, cooldown_days):
     # A zero-day cooldown means every matching availability may notify again.
@@ -164,6 +155,21 @@ def check_cooldown(setting_id, target_date, park_name, facility_type, is_waiting
     
     response = query.execute()
     return len(response.data) > 0
+
+
+def save_ktx_status(status):
+    client = get_supabase()
+    if not client:
+        raise RuntimeError('Supabase is not configured')
+    client.table('system_status').update({'ktx_status': status}).eq('id', 1).execute()
+
+
+def get_ktx_status():
+    client = get_supabase()
+    if not client:
+        raise RuntimeError('Supabase is not configured')
+    response = client.table('system_status').select('ktx_status').eq('id', 1).execute()
+    return response.data[0]['ktx_status'] if response.data else {'status': 'idle'}
 
 def record_notification(setting_id, target_date, park_name, facility_type, is_waiting):
     client = get_supabase()

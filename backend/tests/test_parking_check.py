@@ -11,6 +11,7 @@ from app import PARKING_HISTORY_DATE, run_parking_check
 def _setting(**overrides):
     base = {
         "id": 1,
+        "category": "moduparking",
         "name": "Monitor",
         "selected_parkinglots": ["109902"],
         "telegram_bot_token": "token",

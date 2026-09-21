@@ -11,6 +11,51 @@
 
 ## 🚀 기능
 
+- **카테고리별 설정**: 편집 모달 상단에서 KNPS, Parking, KTX 버튼을 클릭하거나 선택 영역으로 드래그합니다. 설정 하나는 한 종류만 감시합니다.
+- **KTX 좌석 알림**: 출발역·도착역, 탑승일, 출발 시간 범위(양 끝 포함), 일반실·특실·둘 다를 선택합니다. 성인 1명 좌석 기준이며 예약은 코레일톡에서 진행합니다.
+
+### 카테고리 마이그레이션 및 KTX 설정
+
+배포 전에 기존 DB를 백업하고 이전 마이그레이션 이후
+`supabase/migrations/20260921120000_setting_categories_ktx.sql`을 적용하세요.
+`setting_category` enum(`knps`, `moduparking`, `ktx`), `ktx_options`,
+`system_status.ktx_status`가 추가됩니다. 주차장이 들어 있는 기존 설정마다 별도
+Parking 설정을 만들고 `MONTHLY` 알림 이력을 옮깁니다. 원래 설정에는 KNPS 필터와
+이력이 남습니다. 활성 상태·텔레그램 설정·쿨다운을 보존하며, 분리 결과가 일반적인
+설정 생성 한도 10개를 넘어도 데이터를 버리지 않습니다. 분리 후 필요 없는 KNPS
+설정은 비활성화하세요.
+
+`backend/requirements.txt`를 설치하고 서버 환경 변수 또는 Git에서 제외되는
+`backend/.env`에 `KORAIL_ID`, `KORAIL_PASSWORD`를 설정하세요. 서버의 KTX 설정들이
+같은 계정을 사용하며, 코레일 자격 증명은 설정 DB나 브라우저에 저장·노출하지 않습니다.
+참고 프로젝트와 같은 [고정 버전 korail2 클라이언트](https://github.com/dhfhfk/korail2/tree/4b134266fff097ea0fd54e9f760cb128b6c8f878)를
+사용합니다. 비공식 연동이므로 코레일 변경, 인증 실패, 네트워크 오류는 조회 실패로 표시합니다.
+
+기존 스케줄러에서 `/api/check`를 계속 호출하면 됩니다. KTX와 Parking은 KNPS 확률
+게이트와 무관하게 실행됩니다. KTX는 백그라운드 스레드에서 실행하며 응답에
+`ktx.status`(`queued`, `running`, `no_active_settings`)가 포함됩니다.
+`GET /api/ktx/status` 또는 화면의 **Refresh KTX Status**에서 저장된 결과와 설정별 오류를
+확인할 수 있습니다. **Test Now는 실제 텔레그램 메시지를 발송합니다.** KTX는 작업 완료 후
+발송될 수 있습니다. 자동 예약은 하지 않습니다.
+
+지속 실행되는 Python 서버에서 **워커 프로세스 1개**로 운영하세요. 예를 들어
+`backend/`에서 `gunicorn --workers 1 --threads 4 app:app`을 실행합니다. 중복 실행 방지는
+프로세스 단위이므로 다중 워커·다중 서버나 요청 종료 시 작업이 중단되는 서버리스
+환경에는 적합하지 않습니다. 각 요청에 연결·응답 시간 제한이 있고 조회는 최대 40페이지로
+제한합니다(초과하면 시간 범위를 좁혀 주세요). KTX 이력은 날짜·노선·열차 번호·출발 시각·좌석
+등급을 구분하며 발송 성공 후에만 기록합니다. 쿨다운 0은 반복 알림이며 기존 자정 이력 초기화도 유지됩니다.
+
+설정 API는 `category`, `ktx_options`를 받습니다. 부분 수정 시 기존 카테고리를 보존하고,
+카테고리를 변경하면 관련 없는 필터를 비웁니다. KTX 옵션 예시:
+
+```json
+{"departure":"서울","arrival":"부산","date":"2026-10-01","start_time":"08:00","end_time":"18:00","seat_class":"either"}
+```
+
+외부 요청 없이 화면 검증: `npx playwright test tests/categories.spec.ts`.
+백엔드는 `backend/`에서 `python -m pytest tests --ignore=tests/test_integration.py`와
+`python -m pytest tests/test_integration.py -k "not telegram_test_notification"`를 실행합니다.
+
 - **실시간 모니터링**: 국립공원공단 캠핑장 예약 가능 여부를 24시간 모니터링
 - **스마트 알림**: 사용자가 설정한 조건에 맞는 예약 가능 시 Telegram으로 즉시 알림
 - **쿨다운 관리**: 동일한 예약 정보에 대한 알림 스팸 방지를 위한 쿨다운 설정

@@ -87,3 +87,32 @@ def send_parking_notification(token, chat_id, passes, is_test=False):
     except Exception as e:
         print(f"Telegram error for parking notification: {e}")
         return False
+
+def send_ktx_notification(token, chat_id, trains, is_test=False):
+    """Send plain text to avoid Markdown parsing of station names."""
+    import logging
+    if not token or not chat_id or not trains:
+        return False
+    for train in trains:
+        seat = '일반실' if train['seat_class'] == 'general' else '특실'
+        departure = train['departure_time']
+        arrival = train['arrival_time']
+        date = train['date']
+        text = (
+            ('[TEST] ' if is_test else '') + '[KTX 빈자리 알림]\n'
+            f"{date[:4]}-{date[4:6]}-{date[6:]} KTX {train['train_no']}\n"
+            f"{train['departure']} → {train['arrival']}\n"
+            f"{departure[:2]}:{departure[2:4]} → {arrival[:2]}:{arrival[2:4]}\n"
+            f"{seat} 예약 가능 (성인 1명 기준)\n"
+            '코레일톡에서 현재 좌석을 확인해 주세요.\nhttps://www.letskorail.com'
+        )
+        try:
+            response = requests.post(f'https://api.telegram.org/bot{token}/sendMessage',
+                json={'chat_id': chat_id, 'text': text, 'disable_web_page_preview': True}, timeout=10)
+            response.raise_for_status()
+            if response.json().get('ok') is not True:
+                return False
+        except Exception as exc:
+            logging.getLogger(__name__).error('KTX Telegram delivery failed (%s)', type(exc).__name__)
+            return False
+    return True
