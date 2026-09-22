@@ -54,6 +54,7 @@ function setQuietEnabled(enabled) {
 
 function resetForm() {
   byId('settings-form').reset(); byId('monitor_id').value = ''; setCategory('knps'); setDateMode('weekday');
+  byId('telegram_bot_token').placeholder = ''; byId('telegram_chat_id').placeholder = '';
   byId('is_active').checked = true; byId('include_waiting').checked = true;
   document.querySelectorAll('input[name="ktx_seat_classes"]').forEach(input => { input.checked = input.value !== 'standing'; });
   setQuietEnabled(false); byId('quiet_hours_start').value = '23:00'; byId('quiet_hours_end').value = '07:00';
@@ -67,7 +68,9 @@ function populate(monitor) {
   const options = monitor.options || {};
   setCategory(monitor.category); byId('monitor_id').value = monitor.id; byId('name').value = monitor.name;
   byId('is_active').checked = monitor.is_active !== false; byId('cooldown_days').value = monitor.cooldown_days;
-  byId('telegram_bot_token').value = monitor.telegram_bot_token || ''; byId('telegram_chat_id').value = monitor.telegram_chat_id || '';
+  byId('telegram_bot_token').value = ''; byId('telegram_chat_id').value = '';
+  const secretPlaceholder = monitor.telegram_configured ? 'Configured — leave blank to keep' : '';
+  byId('telegram_bot_token').placeholder = secretPlaceholder; byId('telegram_chat_id').placeholder = secretPlaceholder;
   setQuietEnabled(Boolean(monitor.quiet_hours_enabled)); byId('quiet_hours_start').value = String(monitor.quiet_hours_start || '23:00').slice(0,5); byId('quiet_hours_end').value = String(monitor.quiet_hours_end || '07:00').slice(0,5);
   if (monitor.category === 'knps') {
     byId('include_waiting').checked = options.include_waiting !== false; byId('weeks_ahead').value = options.weeks_ahead;
@@ -102,10 +105,16 @@ function formData() {
       start_time: byId('ktx_start_time').value, end_time: byId('ktx_end_time').value, seat_classes: checked('ktx_seat_classes') };
     if (byId('ktx_departure_code').value && byId('ktx_arrival_code').value) Object.assign(options, { departure_code: byId('ktx_departure_code').value, arrival_code: byId('ktx_arrival_code').value });
   }
-  return { name: byId('name').value, category, options, is_active: byId('is_active').checked,
+  const payload = { name: byId('name').value, category, options, is_active: byId('is_active').checked,
     cooldown_days: Number(byId('cooldown_days').value), quiet_hours_enabled: byId('quiet_hours_enabled').checked,
     quiet_hours_start: byId('quiet_hours_start').value, quiet_hours_end: byId('quiet_hours_end').value,
     telegram_bot_token: byId('telegram_bot_token').value, telegram_chat_id: byId('telegram_chat_id').value };
+  const current = monitors.find(item => String(item.id) === byId('monitor_id').value);
+  if (current?.telegram_configured) {
+    if (!payload.telegram_bot_token) delete payload.telegram_bot_token;
+    if (!payload.telegram_chat_id) delete payload.telegram_chat_id;
+  }
+  return payload;
 }
 
 function details(monitor) {

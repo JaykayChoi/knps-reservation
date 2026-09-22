@@ -13,7 +13,7 @@ def canonical(**overrides):
                     'seat_classes': ['general', 'standing']},
         'cooldown_days': 3, 'quiet_hours_enabled': False,
         'quiet_hours_start': '23:00', 'quiet_hours_end': '07:00',
-        'telegram_bot_token': '', 'telegram_chat_id': '',
+        'telegram_bot_token': 'bot-secret', 'telegram_chat_id': 'chat-secret',
     }
     value.update(overrides)
     return value
@@ -85,11 +85,22 @@ def client():
 
 def test_settings_crud_uses_canonical_options_and_partial_update():
     web, deps = client()
-    assert web.get('/api/settings/all').status_code == 200
-    response = web.put('/api/settings/1', json={'quiet_hours_enabled': True})
+    listed = web.get('/api/settings/all')
+    assert listed.status_code == 200
+    assert listed.json[0]['telegram_configured'] is True
+    assert 'telegram_bot_token' not in listed.json[0]
+    assert 'telegram_chat_id' not in listed.json[0]
+    response = web.put('/api/settings/1', json={
+        'quiet_hours_enabled': True,
+        'telegram_bot_token': '',
+        'telegram_chat_id': '',
+    })
     assert response.status_code == 200
     assert response.json['setting']['options']['departure'] == '서울'
     assert response.json['setting']['quiet_hours_enabled'] is True
+    assert 'telegram_bot_token' not in response.json['setting']
+    assert deps.monitors.rows[1]['telegram_bot_token'] == 'bot-secret'
+    assert deps.monitors.rows[1]['telegram_chat_id'] == 'chat-secret'
 
     invalid = web.put('/api/settings/1', json={'unknown': 1})
     missing = web.put('/api/settings/99', json={'name': 'x'})

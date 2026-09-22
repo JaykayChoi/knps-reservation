@@ -16,6 +16,7 @@ test.beforeEach(async ({ page }) => {
       id: 1, name: 'Parking monitor', category: 'moduparking', is_active: false,
       options: { lot_ids: ['12'] }, cooldown_days: 0, quiet_hours_enabled: false,
       quiet_hours_start: '23:00', quiet_hours_end: '07:00',
+      telegram_configured: true,
     }] });
     if (url.pathname.startsWith('/api/')) return route.fulfill({ json: { success: true } });
     if (url.hostname === 'monitor.test') {
@@ -37,6 +38,13 @@ test('edit parking preserves active state and only shows its fields', async ({ p
   await expect(page.locator('#parkinglots-container')).toBeVisible();
   await expect(page.locator('#parks-container')).toBeHidden();
   await expect(page.locator('#ktx-section')).toBeHidden();
+  await expect(page.locator('#telegram_bot_token')).toHaveValue('');
+  await expect(page.locator('#telegram_bot_token')).toHaveAttribute('placeholder', /Configured/);
+  const saved = page.waitForRequest(r => r.url().endsWith('/api/settings/1') && r.method() === 'PUT');
+  await page.locator('#btn-save-setting').click();
+  const body = (await saved).postDataJSON();
+  expect(body.telegram_bot_token).toBeUndefined();
+  expect(body.telegram_chat_id).toBeUndefined();
 });
 
 test('category click and drag select a single category and save KTX', async ({ page }) => {
