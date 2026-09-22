@@ -166,6 +166,18 @@ def test_check_service_caches_identical_queries_and_isolates_errors():
     assert len(summary.errors) == 1 and 'secret' not in summary.errors[0]
 
 
+def test_check_service_caches_identical_query_failures_for_one_run():
+    first = monitor(id=1)
+    second = monitor(id=2)
+    provider = Provider(error=RuntimeError('blocked'))
+
+    summary = CheckService(MonitorRepo([first, second]), {'ktx': provider},
+                           Notifications(), lambda: NOW).run(categories={'ktx'})
+
+    assert len(provider.calls) == 1
+    assert summary.query_failed == {1, 2}
+
+
 def test_check_service_skips_quiet_monitor_before_provider_call():
     quiet = monitor(quiet_hours_enabled=True, quiet_hours_start='11:00', quiet_hours_end='13:00')
     provider = Provider()
@@ -200,3 +212,26 @@ def test_ktx_category_filter_does_not_query_during_quiet_hours():
     assert summary.checked == 1
     assert summary.skipped_quiet == 1
     assert provider.calls == []
+
+
+def test_check_summary_tracks_query_success_failure_and_not_quiet_skips():
+    success = monitor(id=1)
+    failure = monitor(id=2, options={**monitor()['options'], 'date': '2099-10-02'})
+    quiet = monitor(id=3, options={**monitor()['options'], 'date': '2099-10-03'},
+                    quiet_hours_enabled=True, quiet_hours_start='11:00',
+                    quiet_hours_end='13:00')
+    successful_provider = Provider()
+
+    class SelectiveProvider:
+        def fetch(self, options):
+            if options['date'] == '2099-10-02':
+                raise RuntimeError('blocked')
+            return successful_provider.fetch(options)
+
+    summary = CheckService(
+        MonitorRepo([success, failure, quiet]), {'ktx': SelectiveProvider()},
+        Notifications(), lambda: NOW,
+    ).run(categories={'ktx'})
+
+    assert summary.query_succeeded == {1}
+    assert summary.query_failed == {2}

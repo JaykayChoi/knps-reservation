@@ -15,6 +15,8 @@ class CheckSummary:
     messages: int = 0
     skipped_quiet: int = 0
     errors: list[str] = field(default_factory=list)
+    query_succeeded: set[int] = field(default_factory=set)
+    query_failed: set[int] = field(default_factory=set)
 
     def as_dict(self):
         return {
@@ -44,6 +46,7 @@ class CheckService:
     def run(self, *, is_test=False, allow_knps=True, categories=None):
         summary = CheckSummary()
         cache = {}
+        query_failures = {}
         try:
             monitors = self.monitors.list(active_only=True)
         except Exception:
@@ -67,13 +70,21 @@ class CheckService:
             options = self._query_options(monitor, now)
             key = query_cache_key(category, options)
             try:
+                if key in query_failures:
+                    raise query_failures[key]
                 if key not in cache:
-                    cache[key] = provider.fetch(options)
+                    try:
+                        cache[key] = provider.fetch(options)
+                    except Exception as exc:
+                        query_failures[key] = exc
+                        raise
                 result = cache[key]
             except Exception as exc:
+                summary.query_failed.add(monitor['id'])
                 summary.errors.append(
                     f"Monitor {monitor.get('id')} query failed ({type(exc).__name__})")
                 continue
+            summary.query_succeeded.add(monitor['id'])
             if result.errors:
                 summary.errors.extend(
                     f"Monitor {monitor.get('id')}: {error}" for error in result.errors)

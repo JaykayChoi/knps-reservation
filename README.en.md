@@ -56,7 +56,11 @@ Set production `SUPABASE_URL` and `SUPABASE_KEY` in `backend/.env`, then run
 `docker compose up -d --build ktx-worker` from the repository root. No HTTP port
 or domain is needed. The worker checks once on startup and draws a new 2–5 minute
 delay after every completed check. Each run loads only active KTX monitors and
-does not query Korail during a monitor's notification quiet hours. It shares
+does not query Korail during a monitor's notification quiet hours.
+After three consecutive Korail query failures for the same monitor, the worker
+deactivates that monitor. The counter exists only in worker memory and resets
+after a successful query or container restart. A valid empty result and a
+Telegram delivery failure do not increment it. It shares
 Supabase notification history and cooldowns with the main service. Use
 `docker compose logs -f ktx-worker` to inspect it and
 `docker compose stop ktx-worker` to stop it. Disable other scheduled KTX checks
