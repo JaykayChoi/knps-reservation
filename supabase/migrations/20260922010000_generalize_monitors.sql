@@ -25,8 +25,8 @@ SET options = CASE category
                 FROM unnest(COALESCE(selected_days, '{}')) WITH ORDINALITY AS d(day, ordinal)
             ), '[]'::jsonb)
         END,
-        'start_date', start_date,
-        'end_date', end_date,
+        'start_date', NULLIF(start_date, ''),
+        'end_date', NULLIF(end_date, ''),
         'parks', to_jsonb(COALESCE(selected_parks, '{}')),
         'facility_types', to_jsonb(COALESCE(selected_types, '{}')),
         'include_waiting', COALESCE(include_waiting, TRUE)

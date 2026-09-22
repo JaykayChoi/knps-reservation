@@ -47,8 +47,8 @@ INSERT INTO public.user_settings
      include_waiting, cooldown_days, telegram_bot_token, telegram_chat_id,
      ktx_options, created_at, updated_at)
 VALUES
-    (1, 'Camp', 'knps', true, 'weekday', 4, ARRAY['Fri'], '2026-10-01',
-     '2026-10-02', ARRAY['카라반'], ARRAY['덕유산'], '{}', false, 3,
+    (1, 'Camp', 'knps', true, 'weekday', 4, ARRAY['Fri'], '',
+     '', ARRAY['카라반'], ARRAY['덕유산'], '{}', false, 3,
      'secret-one', 'chat-one', '{}', '2026-01-01T00:00:00Z', '2026-02-01T00:00:00Z'),
     (2, 'Parking', 'moduparking', false, 'weekday', 0, '{}', NULL, NULL,
      '{}', '{}', ARRAY['109902'], false, 0, 'secret-two', 'chat-two', '{}',
