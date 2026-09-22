@@ -104,7 +104,7 @@ class OfficialKorailClient:
         }
         response = self.session.post(
             SCHEDULE_URL, params=payload,
-            headers={'User-Agent': 'Dalvik/2.1.0 (Linux; Android 13)',
+            headers={'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 13; SM-S928N Build/UP1A.231005.007)',
                      'x-dynapath-m-token': self.signer.token()},
             timeout=(5, 15),
         )

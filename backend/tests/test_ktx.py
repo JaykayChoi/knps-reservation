@@ -68,6 +68,8 @@ def test_direct_client_posts_official_anonymous_contract_and_handles_results():
     assert call.kwargs['params']['txtPsgFlg_1'] == '1'
     assert call.kwargs['params']['txtTrnGpCd'] == '100'
     assert call.kwargs['headers']['x-dynapath-m-token'] == 'signed'
+    assert call.kwargs['headers']['User-Agent'] == (
+        'Dalvik/2.1.0 (Linux; U; Android 13; SM-S928N Build/UP1A.231005.007)')
     assert call.kwargs['timeout'] == (5, 15)
 
 
