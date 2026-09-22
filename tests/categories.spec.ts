@@ -14,11 +14,15 @@ test.beforeEach(async ({ page }) => {
     ] });
     if (url.pathname === '/api/settings/all') return route.fulfill({ json: [{
       id: 1, name: 'Parking monitor', category: 'moduparking', is_active: false,
-      include_waiting: false, selected_parkinglots: ['12'], cooldown_days: 0,
+      options: { lot_ids: ['12'] }, cooldown_days: 0, quiet_hours_enabled: false,
+      quiet_hours_start: '23:00', quiet_hours_end: '07:00',
     }] });
     if (url.pathname.startsWith('/api/')) return route.fulfill({ json: { success: true } });
-    if (url.hostname === 'monitor.test') return route.fulfill({ contentType: 'text/html',
-      body: readFileSync(resolve('frontend/index.html'), 'utf8') });
+    if (url.hostname === 'monitor.test') {
+      const relative = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
+      const contentType = relative.endsWith('.js') ? 'application/javascript' : relative.endsWith('.css') ? 'text/css' : 'text/html';
+      return route.fulfill({ contentType, body: readFileSync(resolve('frontend', relative), 'utf8') });
+    }
     if (url.hostname === 'cdn.tailwindcss.com') return route.fulfill({ contentType: 'application/javascript', body: 'window.tailwind = {};' });
     return route.fulfill({ body: '' });
   });
@@ -57,35 +61,35 @@ test('category click and drag select a single category and save KTX', async ({ p
   await page.locator('#btn-save-setting').click();
   const body = (await saved).postDataJSON();
   expect(body.category).toBe('ktx');
-  expect(body.selected_parkinglots).toEqual([]);
-  expect(body.selected_parks).toEqual([]);
-  expect(body.ktx_options.departure).toBe('서울');
-  expect(body.ktx_options.departure_code).toBe('0001');
-  expect(body.ktx_options.arrival_code).toBe('0020');
-  expect(body.ktx_options.seat_classes).toEqual(['general', 'standing']);
-  expect(body.ktx_options.seat_class).toBeUndefined();
+  expect(body.options.departure).toBe('서울');
+  expect(body.options.departure_code).toBe('0001');
+  expect(body.options.arrival_code).toBe('0020');
+  expect(body.options.seat_classes).toEqual(['general', 'standing']);
 });
 
 test('KTX refresh status UI and endpoint polling are absent', async ({ page }) => {
-  await page.route('**/api/check?test=true', route => route.fulfill({ json: { ktx: {status: 'queued'} } }));
+  await page.route('**/api/check?test=true', route => route.fulfill({ status: 202, json: { status: 'queued' } }));
   const statusRequests: string[] = [];
   page.on('request', request => { if (request.url().includes('/api/ktx/status')) statusRequests.push(request.url()); });
   await expect(page.locator('#ktx-status-panel')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Refresh KTX Status' })).toHaveCount(0);
   await page.locator('#btn-test').click();
-  await expect(page.locator('#toast-container')).toContainText('KTX check queued');
+  await expect(page.locator('#toast-container')).toContainText('Check queued');
   expect(statusRequests).toEqual([]);
 });
 
-test('legacy KTX seat class opens as equivalent checkboxes', async ({ page }) => {
+test('quiet hours default off and are saved per monitor', async ({ page }) => {
   await page.route('**/api/settings/all', route => route.fulfill({ json: [{
-    id: 6, name: 'Legacy KTX', category: 'ktx', is_active: true, cooldown_days: 1,
-    ktx_options: { departure: '서울', arrival: '부산', date: '2099-10-01',
-      start_time: '08:00', end_time: '18:00', seat_class: 'either' },
+    id: 6, name: 'Sleep', category: 'moduparking', is_active: true, cooldown_days: 1,
+    options: { lot_ids: ['12'] }, quiet_hours_enabled: true,
+    quiet_hours_start: '22:30:00', quiet_hours_end: '06:45:00',
   }] }));
   await page.reload();
   await page.getByRole('button', { name: 'Edit', exact: true }).click();
-  await expect(page.locator('input[name="ktx_seat_classes"][value="general"]')).toBeChecked();
-  await expect(page.locator('input[name="ktx_seat_classes"][value="special"]')).toBeChecked();
-  await expect(page.locator('input[name="ktx_seat_classes"][value="standing"]')).not.toBeChecked();
+  await expect(page.locator('#quiet_hours_enabled')).toBeChecked();
+  await expect(page.locator('#quiet_hours_start')).toHaveValue('22:30');
+  await page.locator('#quiet_hours_enabled').uncheck();
+  const saved = page.waitForRequest(r => r.url().endsWith('/api/settings/6') && r.method() === 'PUT');
+  await page.locator('#btn-save-setting').click();
+  expect((await saved).postDataJSON().quiet_hours_enabled).toBe(false);
 });

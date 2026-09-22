@@ -1,248 +1,97 @@
-from datetime import datetime, timezone
-from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
-import ktx_scraper
-import ktx_monitor
-import notifier
+
+from providers import ktx
+
+OPTIONS = {
+    'departure': '서울', 'arrival': '부산', 'date': '2099-10-01',
+    'start_time': '08:00', 'end_time': '18:00',
+    'seat_classes': ['general', 'special', 'standing'],
+}
 
 
-OPTIONS = dict(departure='서울', arrival='부산', date='2099-10-01',
-               start_time='08:00', end_time='18:00', seat_class='either')
+def raw(no='001', time='090000', general='13', special='13', standing='00'):
+    return {
+        'h_trn_no': no, 'h_dpt_dt': '20991001', 'h_dpt_tm': time,
+        'h_arv_tm': '120000', 'h_dpt_rs_stn_nm': '서울',
+        'h_arv_rs_stn_nm': '부산', 'h_gen_rsv_cd': general,
+        'h_spe_rsv_cd': special, 'h_stnd_rsv_cd': standing,
+    }
 
 
-def train(no='001', time='090000', general=True, special=False, standing=False):
-    return SimpleNamespace(train_no=no, dep_date='20991001', dep_time=time,
-                           arr_time='120000', dep_name='서울', arr_name='부산',
-                           train_type_name='KTX', has_general_seat=lambda: general,
-                           has_special_seat=lambda: special,
-                           has_standing_seat=lambda: standing)
+class Client:
+    def __init__(self, pages):
+        self.pages = list(pages)
+        self.calls = []
+        self.closed = False
+
+    def search_page(self, *args):
+        self.calls.append(args)
+        return self.pages.pop(0) if self.pages else []
+
+    def close(self):
+        self.closed = True
 
 
-def test_paginates_past_sold_out_trains_and_filters_classes():
-    client = Mock()
-    client.search_train.side_effect = [[train(general=False)],
-                                      [train('002', '100000', special=True)], []]
-    rows = ktx_scraper.fetch_availability(OPTIONS, client=client)
-    assert [r['seat_class'] for r in rows] == ['general', 'special']
-    assert client.search_train.call_args_list[1].kwargs['time'] == '090001'
-    assert client.search_train.call_args_list[0].kwargs['include_no_seats'] is True
+def test_anonymous_results_paginate_and_map_all_selected_classes():
+    client = Client([[raw(general='11')], [raw('002', '100000', special='11', standing='11')], []])
+    rows = ktx.fetch_availability(OPTIONS, client=client)
+    assert [(row['train_no'], row['seat_class']) for row in rows] == [
+        ('001', 'general'), ('002', 'special'), ('002', 'standing')]
+    assert client.calls[1][-1] == '090001'
 
 
-def test_window_and_selected_class():
-    client = Mock()
-    client.search_train.return_value = [train('1', '080000', special=True), train('2', '180100')]
-    rows = ktx_scraper.fetch_availability({**OPTIONS, 'seat_class': 'special'}, client=client)
-    assert len(rows) == 1 and rows[0]['seat_class'] == 'special'
+def test_unselected_classes_and_out_of_window_are_ignored():
+    client = Client([[raw(time='075900', general='11'), raw('002', '090000', special='11')], []])
+    rows = ktx.fetch_availability({**OPTIONS, 'seat_classes': ['general']}, client=client)
+    assert rows == []
 
 
-def test_checkbox_classes_include_standing_and_exclude_unchecked_seats():
-    client = Mock()
-    client.search_train.side_effect = [[train(general=True, special=True, standing=True)], []]
-    rows = ktx_scraper.fetch_availability({
-        **OPTIONS, 'seat_classes': ['general', 'standing']
-    }, client=client)
-    assert [row['seat_class'] for row in rows] == ['general', 'standing']
+def test_past_date_skips_client_creation(mocker):
+    create = mocker.patch('providers.ktx.OfficialKorailClient')
+    assert ktx.fetch_availability({**OPTIONS, 'date': '2000-01-01'}) == []
+    create.assert_not_called()
 
 
-def test_standing_uses_raw_schedule_flag_captured_by_session():
-    item = train(general=False, special=False)
-    del item.has_standing_seat
-    client = Mock()
-    client._session.standing_availability = {('001', '090000'): True}
-    client.search_train.side_effect = [[item], []]
-    rows = ktx_scraper.fetch_availability({
-        **OPTIONS, 'seat_classes': ['standing']
-    }, client=client)
-    assert [row['seat_class'] for row in rows] == ['standing']
+def test_direct_client_posts_official_anonymous_contract_and_handles_results():
+    response = Mock()
+    response.json.return_value = {'strResult': 'SUCC', 'trn_infos': {'trn_info': [raw()]}}
+    session = Mock(); session.post.return_value = response
+    signer = Mock(); signer.token.return_value = 'signed'
+    client = ktx.OfficialKorailClient(session=session, signer=signer)
+    assert client.search_page('서울', '부산', '20991001', '080000') == [raw()]
+    call = session.post.call_args
+    assert call.args[0] == ktx.SCHEDULE_URL
+    assert call.kwargs['params']['txtPsgFlg_1'] == '1'
+    assert call.kwargs['params']['txtTrnGpCd'] == '100'
+    assert call.kwargs['headers']['x-dynapath-m-token'] == 'signed'
+    assert call.kwargs['timeout'] == (5, 15)
 
 
-def test_upstream_errors_are_not_empty_success():
-    client = Mock()
-    client.search_train.side_effect = RuntimeError('sensitive upstream text')
-    with pytest.raises(ktx_scraper.KtxError, match='KTX lookup failed'):
-        ktx_scraper.fetch_availability(OPTIONS, client=client)
+def test_direct_client_distinguishes_empty_from_upstream_error():
+    response = Mock(); session = Mock(); session.post.return_value = response
+    response.json.return_value = {'strResult': 'FAIL', 'h_msg_cd': 'P100'}
+    assert ktx.OfficialKorailClient(session=session).search_page('서울', '부산', '20991001', '080000') == []
+    response.json.return_value = {'strResult': 'FAIL', 'h_msg_cd': 'MACRO ERROR'}
+    with pytest.raises(ktx.KtxError, match='rejected'):
+        ktx.OfficialKorailClient(session=session).search_page('서울', '부산', '20991001', '080000')
 
 
-def test_expired_date_skips_client_creation(mocker):
-    make = mocker.patch('ktx_scraper.create_client')
-    assert ktx_scraper.fetch_availability({**OPTIONS, 'date': '2000-01-01'}) == []
-    make.assert_not_called()
+def test_signer_matches_fixed_official_request_vector():
+    signer = ktx.DynaPathSigner(started_at=1700000000000)
+    token = signer.token(timestamp=1700000001234, nonce='AB12')
+    assert token == ('bEeEPSYj1Dm5CMM4Pv4ff4GR4GR4GR4GDK3FFmJaRyn3PkmGmvPkqJaRPyD3wdPv1f5G4wMCMfmudCEaGPGGPmGldCMG41Gf513Pff3myw5mug4CRCn9JlJC1vJdD4nnJEv4uYmRfGkgJE9JgqCMKJl44uGCMYf5d3kg4mPPvv4uCJkg4al4mPPvv4uC4133kg4mPPvv4uC4YYyndJa133Mf5v3lJGllGPfGPfGPfGPfGPfG4j3jymknCjdGPfGPfGPfGlPC1vf5F3lJG4jPkMmknCDk4nCynDvlFa5mCnfvkj3YKmkMPd33qq4jwf5dY1CYD5')
 
 
-@pytest.mark.parametrize('sent,cooldown,recorded', [(True, 3, True), (False, 3, False), (True, 0, False)])
-def test_notification_records_only_success(mocker, sent, cooldown, recorded):
-    item = dict(date='20991001', departure='서울', arrival='부산', train_no='001',
-                departure_time='090000', arrival_time='120000', seat_class='general')
-    mocker.patch('ktx_monitor.ktx_scraper.fetch_availability', return_value=[item])
-    mocker.patch('ktx_monitor.db.check_cooldown', return_value=False)
-    record = mocker.patch('ktx_monitor.db.record_notification')
-    mocker.patch('ktx_monitor.notifier.send_ktx_notification', return_value=sent)
-    summary = ktx_monitor.run_check([dict(id=1, category='ktx', ktx_options=OPTIONS,
-        telegram_bot_token='test', telegram_chat_id='test', cooldown_days=cooldown)])
-    assert record.called is recorded
-    assert summary['notified'] == (1 if sent else 0)
-    assert bool(summary['errors']) is (not sent)
-
-
-def test_available_trains_are_sent_as_one_notification(mocker):
-    items = [
-        dict(date='20991001', departure='서울', arrival='부산', train_no='001',
-             departure_time='090000', arrival_time='120000', seat_class='general'),
-        dict(date='20991001', departure='서울', arrival='부산', train_no='003',
-             departure_time='100000', arrival_time='130000', seat_class='special'),
-    ]
-    mocker.patch('ktx_monitor.ktx_scraper.fetch_availability', return_value=items)
-    mocker.patch('ktx_monitor.db.check_cooldown', return_value=False)
-    record = mocker.patch('ktx_monitor.db.record_notification')
-    send = mocker.patch('ktx_monitor.notifier.send_ktx_notification', return_value=True)
-    summary = ktx_monitor.run_check([dict(id=1, category='ktx', ktx_options=OPTIONS,
-        telegram_bot_token='test', telegram_chat_id='test', cooldown_days=3)])
-    send.assert_called_once_with('test', 'test', items, is_test=False)
-    assert record.call_count == 2
-    assert summary['notified'] == 2
-
-
-def test_large_train_results_are_split_into_safe_batches(mocker):
-    items = [dict(date='20991001', departure='서울', arrival='부산', train_no=str(i),
-                  departure_time='090000', arrival_time='120000', seat_class='general')
-             for i in range(21)]
-    mocker.patch('ktx_monitor.ktx_scraper.fetch_availability', return_value=items)
-    mocker.patch('ktx_monitor.db.check_cooldown', return_value=False)
-    mocker.patch('ktx_monitor.db.record_notification')
-    send = mocker.patch('ktx_monitor.notifier.send_ktx_notification', return_value=True)
-    summary = ktx_monitor.run_check([dict(id=1, category='ktx', ktx_options=OPTIONS,
-        telegram_bot_token='test', telegram_chat_id='test', cooldown_days=3)])
-    assert [len(call.args[2]) for call in send.call_args_list] == [20, 1]
-    assert summary['notified'] == 21
-
-
-def test_cooldown_suppresses_and_distinguishes_train_classes(mocker):
-    item = dict(date='20991001', departure='서울', arrival='부산', train_no='001',
-                departure_time='090000', arrival_time='120000', seat_class='general')
-    mocker.patch('ktx_monitor.ktx_scraper.fetch_availability', return_value=[item])
-    mocker.patch('ktx_monitor.db.check_cooldown', return_value=True)
-    send = mocker.patch('ktx_monitor.notifier.send_ktx_notification')
-    ktx_monitor.run_check([dict(id=1, category='ktx', ktx_options=OPTIONS,
-        telegram_bot_token='test', telegram_chat_id='test')])
-    send.assert_not_called()
-    assert ktx_monitor.history_key(item) != ktx_monitor.history_key({**item, 'seat_class': 'special'})
-
-
-def test_worker_has_no_persisted_refresh_status(mocker):
-    mocker.patch('ktx_monitor.run_check', side_effect=RuntimeError('secret'))
-    logged = mocker.patch('ktx_monitor.logger.error')
-    ktx_monitor._run_job([], False)
-    assert logged.called
-    assert not hasattr(ktx_monitor, 'get_status')
-    assert not hasattr(ktx_monitor.db, 'save_ktx_status')
-
-
-def test_telegram_contains_readable_korean_and_rejects_api_error(mocker):
-    post = mocker.patch('notifier.requests.post')
-    post.return_value.json.return_value = {'ok': True}
-    item = dict(date='20991001', departure='서울', arrival='부산', train_no='001',
-                departure_time='090000', arrival_time='120000', seat_class='general')
-    assert notifier.send_ktx_notification('test', 'test', [item])
-    text = post.call_args.kwargs['json']['text']
-    assert '일반실 예약 가능' in text
-    assert '서울 → 부산' in text
-    post.return_value.json.return_value = {'ok': False}
-    assert not notifier.send_ktx_notification('test', 'test', [item])
-
-
-def test_telegram_combines_multiple_trains_in_one_message(mocker):
-    post = mocker.patch('notifier.requests.post')
-    post.return_value.json.return_value = {'ok': True}
-    items = [
-        dict(date='20991001', departure='서울', arrival='부산', train_no='001',
-             departure_time='090000', arrival_time='120000', seat_class='general'),
-        dict(date='20991001', departure='서울', arrival='부산', train_no='003',
-             departure_time='100000', arrival_time='130000', seat_class='special'),
-    ]
-    assert notifier.send_ktx_notification('test', 'test', items)
-    post.assert_called_once()
-    text = post.call_args.kwargs['json']['text']
-    assert 'KTX 001' in text and 'KTX 003' in text
-    assert '일반실 예약 가능' in text and '특실 예약 가능' in text
-
-
-def test_telegram_labels_standing_separately(mocker):
-    post = mocker.patch('notifier.requests.post')
-    post.return_value.json.return_value = {'ok': True}
-    item = dict(date='20991001', departure='서울', arrival='부산', train_no='001',
-                departure_time='090000', arrival_time='120000', seat_class='standing')
-    assert notifier.send_ktx_notification('test', 'test', [item])
-    assert '입석 예약 가능' in post.call_args.kwargs['json']['text']
-
-
-def test_category_dispatch_runs_before_knps_probability_gate(mocker, monkeypatch):
-    import app as routes
-    setting = {'id': 1, 'category': 'ktx', 'ktx_options': OPTIONS}
-    mocker.patch('app.db.get_settings', return_value=[setting])
-    mocker.patch('app.db.truncate_notification_history')
-    mocker.patch('app.db.delete_old_notifications')
-    mocker.patch('app.db.record_last_check_time')
-    submit = mocker.patch('app.ktx_monitor.submit_check', return_value={'status': 'queued'})
-    knps = mocker.patch('app.scraper.fetch_reservations')
-    parking = mocker.patch('app.modu_scraper.fetch_monthly_passes')
-    mocker.patch('app.random.random', return_value=1)
-    monkeypatch.setenv('CHECK_PROBABILITY', '0')
-    response = routes.app.test_client().get('/api/check')
-    assert response.status_code == 200
-    assert response.json['ktx']['status'] == 'queued'
-    submit.assert_called_once_with([setting], is_test=False)
-    knps.assert_not_called()
-    parking.assert_not_called()
-
-
-def test_submit_does_not_duplicate_running_job(mocker):
-    future = Mock()
-    future.done.return_value = False
-    mocker.patch('ktx_monitor._future', future)
-    executor = mocker.patch('ktx_monitor._executor')
-    assert ktx_monitor.submit_check([{'id': 1, 'category': 'ktx'}]) == {'status': 'running'}
-    executor.submit.assert_not_called()
-
-
-def test_client_is_anonymous_and_uses_isolated_timeouts(mocker):
-    import korail2
-    login = mocker.patch.object(korail2.Korail, 'login')
-    client = ktx_scraper.create_client()
-    assert isinstance(client._session, ktx_scraper.TimeoutSession)
-    assert client._session is not korail2.Korail._session
-    assert not client.want_feedback
-    login.assert_not_called()
-    request = mocker.patch('requests.Session.request')
-    client._session.get('https://example.invalid')
-    assert request.call_args.kwargs['timeout'] == (5, 15)
-    client._session.close()
-
-
-def test_refresh_status_route_is_removed():
-    from app import app
-    assert app.test_client().get('/api/ktx/status').status_code == 404
-
-
-def test_official_station_list_is_normalized(mocker):
+def test_station_list_is_normalized_and_session_timeout_is_explicit():
     session = Mock()
     session.get.return_value.json.return_value = {'stns': {'stn': [
         {'stn_cd': '0001', 'stn_nm': '서울', 'area': '0', 'major': '1'},
         {'stn_cd': '0020', 'stn_nm': '부산', 'area': '9'},
     ]}}
-    stations = ktx_scraper.fetch_stations(session=session)
-    assert stations == [
+    assert ktx.fetch_stations(session=session) == [
         {'code': '0001', 'name': '서울', 'area': '0', 'major': 1},
         {'code': '0020', 'name': '부산', 'area': '9', 'major': None},
     ]
-    session.get.assert_called_once_with(ktx_scraper.STATIONS_URL)
-
-
-def test_station_route_returns_official_picker_data(mocker):
-    from app import app
-    stations = [{'code': '0001', 'name': '서울', 'area': '0', 'major': 1}]
-    mocker.patch('app.ktx_scraper.fetch_stations', return_value=stations)
-    response = app.test_client().get('/api/ktx/stations')
-    assert response.status_code == 200
-    assert response.json == stations
+    session.get.assert_called_once_with(ktx.STATIONS_URL, timeout=(5, 15))

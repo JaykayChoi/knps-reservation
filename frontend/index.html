@@ -11,36 +11,7 @@
     <script>
         tailwind.config = { theme: { extend: { colors: { forest: { 50: '#f2f7f4', 100: '#e1efe6', 200: '#c4dfd0', 300: '#9bc6ae', 400: '#6ba686', 500: '#478865', 600: '#346c4f', 700: '#2a5640', 800: '#234534', 900: '#1d392c', 950: '#0f2018' }, sand: '#f4f1ea', alert: '#e63946', accent: '#e9c46a' }, fontFamily: { sans: ['Outfit', 'sans-serif'], serif: ['Fraunces', 'serif'] }, boxShadow: { 'brutal': '6px 6px 0px 0px rgba(15, 32, 24, 1)', 'brutal-sm': '4px 4px 0px 0px rgba(15, 32, 24, 1)', 'brutal-hover': '2px 2px 0px 0px rgba(15, 32, 24, 1)' } } } }
     </script>
-    <style>
-        [hidden] { display: none !important; }
-        .category-button[aria-pressed="true"] { background: #0f2018; color: white; }
-        body { background-color: #f4f1ea; color: #0f2018; }
-        .brutal-card { border: 2px solid #0f2018; background: white; box-shadow: 6px 6px 0px 0px rgba(15, 32, 24, 1); transition: transform 0.2s ease, box-shadow 0.2s ease; }
-        .brutal-input { border: 2px solid #0f2018; padding: 0.75rem 1rem; width: 100%; background: white; transition: all 0.2s ease; font-family: 'Outfit', sans-serif; }
-        .brutal-input:focus { outline: none; box-shadow: 4px 4px 0px 0px rgba(15, 32, 24, 1); transform: translate(-2px, -2px); }
-        .brutal-checkbox { appearance: none; width: 1.5rem; height: 1.5rem; border: 2px solid #0f2018; background-color: white; cursor: pointer; position: relative; transition: all 0.1s ease; flex-shrink: 0; }
-        .brutal-checkbox:checked { background-color: #0f2018; }
-        .brutal-checkbox:checked::after { content: ''; position: absolute; left: 7px; top: 2px; width: 6px; height: 14px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg); }
-        .brutal-radio { appearance: none; width: 1.5rem; height: 1.5rem; border: 2px solid #0f2018; border-radius: 50%; background-color: white; cursor: pointer; position: relative; transition: all 0.1s ease; flex-shrink: 0; }
-        .brutal-radio:checked::after { content: ''; position: absolute; left: 4px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background-color: #0f2018; }
-        .brutal-btn { border: 2px solid #0f2018; font-weight: 600; transition: all 0.1s ease; box-shadow: 4px 4px 0px 0px rgba(15, 32, 24, 1); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; }
-        .brutal-btn:active:not(:disabled) { box-shadow: 0px 0px 0px 0px rgba(15, 32, 24, 1); transform: translate(4px, 4px); }
-        .brutal-btn:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: 0px 0px 0px 0px rgba(15, 32, 24, 1); transform: translate(4px, 4px); }
-        .brutal-btn-primary { background-color: #0f2018; color: white; }
-        .brutal-btn-secondary { background-color: #e9c46a; color: #0f2018; }
-        .brutal-btn-outline { background-color: white; color: #0f2018; }
-        .brutal-btn-danger { background-color: #e63946; color: white; }
-        .station-tab[aria-selected="true"], .station-region[aria-pressed="true"] { background: #0f2018; color: white; }
-        .station-pill { border: 2px solid rgba(15, 32, 24, 0.35); border-radius: 9999px; background: white; padding: 0.7rem 1rem; font-weight: 700; }
-        .station-pill:hover, .station-pill:focus { border-color: #0f2018; background: #e1efe6; outline: none; }
-        ::-webkit-scrollbar { width: 10px; }
-        ::-webkit-scrollbar-track { background: #f4f1ea; border-left: 2px solid #0f2018; }
-        ::-webkit-scrollbar-thumb { background: #0f2018; }
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
-        .toast-enter { animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        .toast-exit { animation: slideOut 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-    </style>
+    <link rel="stylesheet" href="/css/app.css">
 </head>
 <body class="min-h-screen flex flex-col relative">
     <div id="toast-container" class="fixed bottom-6 right-6 z-[100] flex flex-col gap-3 pointer-events-none"></div>
@@ -70,7 +41,7 @@
         <div class="min-h-screen px-4 text-center flex items-center justify-center py-10">
             <div class="inline-block w-full max-w-5xl text-left align-middle transition-all transform bg-sand brutal-card relative">
                 <div class="flex justify-between items-center p-6 border-b-2 border-forest-950 bg-white sticky top-0 z-10"><h3 class="font-serif text-2xl font-bold text-forest-950" id="modal-title">Setting</h3><button id="btn-close-modal" class="text-forest-950 hover:text-alert transition-colors"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button></div>
-                <div class="p-6 sm:p-8"><form id="settings-form" class="grid grid-cols-1 lg:grid-cols-12 gap-8"><input type="hidden" id="setting_id" name="id">
+                <div class="p-6 sm:p-8"><form id="settings-form" class="grid grid-cols-1 lg:grid-cols-12 gap-8"><input type="hidden" id="monitor_id" name="id">
                         <section class="lg:col-span-12 brutal-card p-6" aria-label="Monitor category">
                             <h2 class="font-serif text-xl font-bold mb-3">Category</h2>
                             <input type="hidden" id="category" value="knps">
@@ -83,6 +54,7 @@
                             <p class="mt-2 text-sm text-forest-700">Click a category, or drag its button into the box. One category per monitor.</p>
                         </section>
                         <div class="lg:col-span-5 flex flex-col gap-8"><section class="brutal-card p-6"><h2 class="font-serif text-xl font-bold mb-5">Basic Info</h2><div class="space-y-5"><div><label class="block text-sm font-bold mb-2 uppercase text-forest-800">Name</label><input type="text" id="name" name="name" class="brutal-input" required></div><label class="flex items-center gap-3 cursor-pointer"><input type="checkbox" id="is_active" name="is_active" class="brutal-checkbox" checked><span class="font-bold text-sm uppercase text-forest-800">Active</span></label><label data-for-category="knps" class="flex items-center gap-3 cursor-pointer"><input type="checkbox" id="include_waiting" name="include_waiting" class="brutal-checkbox" checked><span class="font-bold text-sm uppercase text-forest-800">Waiting List</span></label></div></section>
+                            <section class="brutal-card p-6"><h2 class="font-serif text-xl font-bold mb-4">Notification quiet hours</h2><label class="flex items-center gap-3 cursor-pointer"><input type="checkbox" id="quiet_hours_enabled" class="brutal-checkbox"><span class="font-bold text-sm uppercase text-forest-800">Pause notifications while I sleep</span></label><div id="quiet-hours-fields" class="grid grid-cols-2 gap-4 mt-5 opacity-50"><label class="text-sm font-bold">From<input type="time" id="quiet_hours_start" value="23:00" class="brutal-input mt-2" disabled required></label><label class="text-sm font-bold">Until<input type="time" id="quiet_hours_end" value="07:00" class="brutal-input mt-2" disabled required></label></div><p class="mt-3 text-xs text-forest-700">한국 시간 기준입니다. 이 시간에는 Test Now도 알림을 보내지 않습니다.</p></section>
                             <section class="brutal-card p-6"><div data-for-category="knps"><h2 class="font-serif text-xl font-bold mb-5">Schedule</h2><div class="mb-6 flex gap-4 p-4 border-2 border-forest-950/20 bg-white"><label class="flex items-center gap-3 cursor-pointer"><input type="radio" name="date_mode" value="weekday" class="brutal-radio" checked><span class="text-sm font-bold uppercase">Weekday</span></label><label class="flex items-center gap-3 cursor-pointer"><input type="radio" name="date_mode" value="absolute" class="brutal-radio"><span class="text-sm font-bold uppercase">Absolute</span></label></div>
                                 <div id="weekday-section" class="space-y-6"><div><label class="block text-sm font-bold mb-2 uppercase text-forest-800">Weeks Ahead</label><input type="number" id="weeks_ahead" name="weeks_ahead" value="4" class="brutal-input"></div><div class="pt-4 border-t-2 border-forest-950/10"><label class="block text-sm font-bold mb-3 uppercase text-forest-800">Days</label><div class="flex flex-col gap-3"><label class="flex items-center gap-3 cursor-pointer"><input type="checkbox" name="selected_days" value="Fri" class="brutal-checkbox"><span>Friday</span></label><label class="flex items-center gap-3 cursor-pointer"><input type="checkbox" name="selected_days" value="Sat" class="brutal-checkbox"><span>Saturday</span></label><label class="flex items-center gap-3 cursor-pointer"><input type="checkbox" name="selected_days" value="Sun" class="brutal-checkbox"><span>Sunday</span></label></div></div></div>
                                 <div id="absolute-section" class="space-y-5 hidden"><div><label class="block text-sm font-bold mb-2 uppercase text-forest-800">Start Date</label><input type="date" id="start_date" name="start_date" class="brutal-input"></div><div><label class="block text-sm font-bold mb-2 uppercase text-forest-800">End Date</label><input type="date" id="end_date" name="end_date" class="brutal-input"></div></div>
@@ -117,160 +89,5 @@
             </div>
         </div>
     </div>
-    <script>
-        const PARKS = ['가야산', '계룡산', '내장산', '내장산백암', '다도해해상', '덕유산', '무등산동부', '변산반도', '북한산', '설악산', '소백산', '소백산북부', '오대산', '월악산', '월출산', '주왕산', '지리산경남', '지리산전북', '치악산', '태백산', '태안해안', '팔공산동부', '팔공산서부', '한려해상', '한려해상동부'];
-        let settingsList = []; const form = document.getElementById('settings-form'); const parksContainer = document.getElementById('parks-container'); const parkingLotsContainer = document.getElementById('parkinglots-container'); const btnTest = document.getElementById('btn-test'); const btnSelectAllParks = document.getElementById('btn-select-all-parks'); const toastContainer = document.getElementById('toast-container'); const btnClearAllHistory = document.getElementById('btn-clear-all-history'); const btnQuickSearchPage = document.getElementById('btn-quick-search-page'); const settingsListContainer = document.getElementById('settings-list'); const emptyState = document.getElementById('empty-state'); const btnAddSetting = document.getElementById('btn-add-setting'); const modal = document.getElementById('setting-modal'); const modalTitle = document.getElementById('modal-title'); const btnCloseModal = document.getElementById('btn-close-modal'); const btnCancelModalFooter = document.getElementById('btn-cancel-modal-footer'); const btnClearHistory = document.getElementById('btn-clear-history'); const btnSaveSetting = document.getElementById('btn-save-setting'); const radioDateMode = document.querySelectorAll('input[name="date_mode"]'); const weekdaySection = document.getElementById('weekday-section'); const absoluteSection = document.getElementById('absolute-section');
-        const stationModal = document.getElementById('station-modal'); const stationSearch = document.getElementById('station-search'); const stationGrid = document.getElementById('station-grid'); const stationRegions = document.getElementById('station-regions'); const recentStations = document.getElementById('recent-stations');
-        const stationAreaLabels = { '0': '서울', '1': '경기', '2': '강원', '3': '충북', '4': '충남', '7': '전북', '8': '전남', '5': '경북', '6': '경남', '9': '광역시', all: '전체' };
-        let stations = []; let stationPickerTarget = null; let stationTab = 'major'; let stationArea = 'all';
-        document.addEventListener('DOMContentLoaded', async () => { renderParks(); await renderParkingLots(); fetchSettings(); setupEventListeners(); });
-        function renderParks() { parksContainer.innerHTML = PARKS.map(p => `<label class="flex items-center gap-2 py-1"><input type="checkbox" name="selected_parks" value="${p}" class="brutal-checkbox w-5 h-5"><span class="text-sm">${p}</span></label>`).join(''); }
-        async function renderParkingLots() { try { const r = await fetch('/api/parking-lots'); if (!r.ok) throw new Error(); const lots = await r.json(); parkingLotsContainer.innerHTML = lots.map(l => `<label class="flex items-center gap-3 p-3 border-2 border-forest-950/20 cursor-pointer bg-sand/50"><input type="checkbox" name="selected_parkinglots" value="${l.seq}" class="brutal-checkbox"><span class="font-bold text-sm">${l.name}</span></label>`).join(''); } catch (e) { parkingLotsContainer.innerHTML = '<p class="text-sm text-alert">Failed to load parking lots</p>'; } }
-        function stationInitials(name) {
-            const initials = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
-            return Array.from(name).map(char => { const offset = char.charCodeAt(0) - 0xAC00; return offset >= 0 && offset < 11172 ? initials[Math.floor(offset / 588)] : char; }).join('');
-        }
-        function getRecentStations() { try { return JSON.parse(localStorage.getItem('recentKtxStations') || '[]'); } catch { return []; } }
-        function rememberStation(station) { const next = [station, ...getRecentStations().filter(item => item.code !== station.code)].slice(0, 8); localStorage.setItem('recentKtxStations', JSON.stringify(next)); }
-        async function loadStations() {
-            if (stations.length) return;
-            stationGrid.innerHTML = '<p class="col-span-full py-8 text-center">역 정보를 불러오고 있습니다...</p>';
-            const response = await fetch('/api/ktx/stations');
-            if (!response.ok) throw new Error('Could not load station list');
-            stations = await response.json();
-        }
-        async function openStationPicker(target) {
-            stationPickerTarget = target; stationTab = 'major'; stationArea = 'all'; stationSearch.value = '';
-            stationModal.classList.remove('hidden');
-            try { await loadStations(); renderStationPicker(); stationSearch.focus(); }
-            catch (error) { stationGrid.innerHTML = '<p class="col-span-full py-8 text-center text-alert">역 목록을 불러오지 못했습니다.</p>'; }
-        }
-        function closeStationPicker() { stationModal.classList.add('hidden'); stationPickerTarget = null; }
-        function selectStationTab(tab) {
-            stationTab = tab;
-            document.querySelectorAll('[data-station-tab]').forEach(button => button.setAttribute('aria-selected', String(button.dataset.stationTab === tab)));
-            renderStationPicker();
-        }
-        function chooseStation(station) {
-            if (!stationPickerTarget) return;
-            document.getElementById(`ktx_${stationPickerTarget}`).value = station.name;
-            document.getElementById(`ktx_${stationPickerTarget}_code`).value = station.code;
-            rememberStation(station); closeStationPicker();
-        }
-        function renderStationPicker() {
-            const query = stationSearch.value.trim().toLowerCase();
-            stationRegions.classList.toggle('hidden', stationTab !== 'region');
-            stationRegions.replaceChildren();
-            if (stationTab === 'region') Object.entries(stationAreaLabels).forEach(([code, label]) => {
-                const button = document.createElement('button'); button.type = 'button'; button.className = 'station-region border-2 border-forest-950 px-3 py-2 font-bold'; button.textContent = label; button.setAttribute('aria-pressed', String(stationArea === code));
-                button.onclick = () => { stationArea = code; renderStationPicker(); }; stationRegions.appendChild(button);
-            });
-            recentStations.replaceChildren();
-            const recent = getRecentStations();
-            (recent.length ? recent : stations.filter(station => station.major !== null).sort((a, b) => a.major - b.major).slice(0, 8)).forEach(station => { const button = document.createElement('button'); button.type = 'button'; button.className = 'station-pill py-2'; button.textContent = station.name; button.onclick = () => chooseStation(station); recentStations.appendChild(button); });
-            let visible = stationTab === 'major' ? stations.filter(station => station.major !== null).sort((a, b) => a.major - b.major) : stations.filter(station => stationArea === 'all' || station.area === stationArea).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-            if (query) visible = stations.filter(station => station.name.toLowerCase().includes(query) || stationInitials(station.name).includes(query));
-            stationGrid.replaceChildren();
-            visible.forEach(station => { const button = document.createElement('button'); button.type = 'button'; button.className = 'station-pill'; button.textContent = station.name; button.onclick = () => chooseStation(station); stationGrid.appendChild(button); });
-            if (!visible.length) stationGrid.innerHTML = '<p class="col-span-full py-8 text-center text-forest-700">검색 결과가 없습니다.</p>';
-        }
-        function setupEventListeners() {
-            document.querySelectorAll('[data-station-target]').forEach(button => button.addEventListener('click', () => openStationPicker(button.dataset.stationTarget)));
-            ['ktx_departure', 'ktx_arrival'].forEach(id => document.getElementById(id).addEventListener('click', () => openStationPicker(id.replace('ktx_', ''))));
-            document.getElementById('btn-close-station-modal').addEventListener('click', closeStationPicker);
-            stationSearch.addEventListener('input', renderStationPicker);
-            document.querySelectorAll('[data-station-tab]').forEach(button => button.addEventListener('click', () => selectStationTab(button.dataset.stationTab)));
-            document.querySelectorAll('[data-category]').forEach(button => {
-                button.addEventListener('click', () => selectCategory(button.dataset.category));
-                button.addEventListener('dragstart', event => {
-                    event.dataTransfer.setData('text/plain', button.dataset.category);
-                    event.dataTransfer.effectAllowed = 'copy';
-                });
-            });
-            const dropzone = document.getElementById('category-dropzone');
-            dropzone.addEventListener('dragover', event => event.preventDefault());
-            dropzone.addEventListener('drop', event => {
-                event.preventDefault();
-                selectCategory(event.dataTransfer.getData('text/plain'));
-            });
-            btnTest.addEventListener('click', handleTest); btnClearAllHistory.addEventListener('click', handleClearAllHistory); btnQuickSearchPage.addEventListener('click', () => window.open('search.html', '_blank')); btnAddSetting.addEventListener('click', () => openModal()); btnCloseModal.addEventListener('click', closeModal); btnCancelModalFooter.addEventListener('click', closeModal); btnClearHistory.addEventListener('click', handleClearHistory); btnSaveSetting.addEventListener('click', handleSave); radioDateMode.forEach(r => r.addEventListener('change', e => toggleDateMode(e.target.value))); btnSelectAllParks.addEventListener('click', () => { const cbs = document.querySelectorAll('input[name="selected_parks"]'); const all = Array.from(cbs).every(c => c.checked); cbs.forEach(c => c.checked = !all); btnSelectAllParks.textContent = all ? 'Select All' : 'Deselect All'; });
-        }
-        function toggleDateMode(m) { if (m === 'weekday') { weekdaySection.classList.remove('hidden'); absoluteSection.classList.add('hidden'); } else { weekdaySection.classList.add('hidden'); absoluteSection.classList.remove('hidden'); } }
-        async function fetchSettings() { try { const r = await fetch('/api/settings/all'); if (!r.ok) throw new Error(); settingsList = await r.json(); renderSettingsList(); } catch (e) { showToast('Error loading settings', 'error'); } }
-        const categoryLabels = { knps: 'KNPS', moduparking: 'Parking', ktx: 'KTX' };
-        function selectCategory(category) {
-            if (!Object.hasOwn(categoryLabels, category)) return;
-            document.getElementById('category').value = category;
-            document.querySelectorAll('[data-category]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.category === category)));
-            document.querySelectorAll('[data-for-category]').forEach(section => {
-                section.hidden = section.dataset.forCategory !== category;
-                section.querySelectorAll('input, select, button').forEach(input => input.disabled = section.hidden);
-            });
-            document.getElementById('category-dropzone').textContent = `Selected: ${categoryLabels[category]}`;
-        }
-        function escapeHtml(value) { const span = document.createElement('span'); span.textContent = value ?? ''; return span.innerHTML; }
-        function renderSettingsList() {
-            settingsListContainer.replaceChildren();
-            if (!settingsList.length) { settingsListContainer.appendChild(emptyState); emptyState.classList.remove('hidden'); return; }
-            settingsList.forEach(s => {
-                const category = s.category || 'knps';
-                const c = document.createElement('div');
-                c.className = `brutal-card p-6 flex flex-col h-full relative ${!s.is_active ? 'opacity-75 bg-sand/30' : ''}`;
-                let details;
-                if (category === 'moduparking') details = `Parking lots: ${(s.selected_parkinglots || []).length}`;
-                else if (category === 'ktx') {
-                    const k = s.ktx_options || {};
-                    details = `${k.departure || ''} → ${k.arrival || ''} · ${k.date || ''} · ${k.start_time || ''}–${k.end_time || ''}`;
-                } else {
-                    const schedule = s.date_mode === 'absolute' ? `${s.start_date || ''} to ${s.end_date || ''}` : `${s.weeks_ahead} wks (${(s.selected_days || []).join(',')})`;
-                    details = `${schedule} · Parks: ${(s.selected_parks || []).length}`;
-                }
-                c.innerHTML = `<div class="flex justify-between mb-4"><h3 class="font-serif text-xl font-bold truncate">${escapeHtml(s.name)}</h3><span class="px-2 py-1 border-2 border-forest-950 text-xs font-bold bg-white">${s.is_active ? 'Active' : 'Off'}</span></div><div class="space-y-3 mb-6"><div class="font-bold">${escapeHtml(categoryLabels[category] || category)}</div><div class="text-sm">${escapeHtml(details)}</div></div><div class="flex gap-3 mt-auto pt-4 border-t-2 border-forest-950/10"><button data-action="status" class="brutal-btn px-4 py-2 text-sm">Status</button><button data-action="edit" class="brutal-btn brutal-btn-outline flex-1">Edit</button><button data-action="delete" class="brutal-btn brutal-btn-danger px-4 py-2 text-sm">Del</button></div>`;
-                c.querySelector('[data-action="status"]').onclick = () => toggleActive(s.id, !s.is_active);
-                c.querySelector('[data-action="edit"]').onclick = () => editSetting(s.id);
-                c.querySelector('[data-action="delete"]').onclick = () => deleteSetting(s.id);
-                settingsListContainer.appendChild(c);
-            });
-        }
-        function openModal(id = null) { form.reset(); document.getElementById('setting_id').value = ''; document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false); document.querySelectorAll('input[name="ktx_seat_classes"]').forEach(input => input.checked = input.value !== 'standing'); document.getElementById('is_active').checked = true; document.getElementById('include_waiting').checked = true; document.querySelector('input[name="date_mode"][value="weekday"]').checked = true; toggleDateMode('weekday'); selectCategory('knps'); if (id) { modalTitle.textContent = 'Edit Setting'; btnClearHistory.classList.remove('hidden'); const s = settingsList.find(x => x.id == id); if (s) populateForm(s); } else { modalTitle.textContent = 'Add New Setting'; } modal.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
-        function closeModal() { modal.classList.add('hidden'); btnClearHistory.classList.add('hidden'); document.body.style.overflow = ''; } window.editSetting = id => openModal(id); window.deleteSetting = async id => { if (confirm('Sure?')) { const r = await fetch(`/api/settings/${id}`, { method: 'DELETE' }); if (r.ok) { showToast('Deleted'); fetchSettings(); } } }; window.toggleActive = async (id, s) => { const r = await fetch(`/api/settings/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: s }) }); if (r.ok) { showToast('Updated'); fetchSettings(); } };
-        function populateForm(s) {
-            selectCategory(s.category || 'knps');
-            document.getElementById('is_active').checked = s.is_active !== false;
-            document.getElementById('include_waiting').checked = s.include_waiting !== false;
-            const ktxOptions = s.ktx_options || {};
-            Object.entries(ktxOptions).forEach(([key, value]) => { const input = document.getElementById('ktx_' + key); if (input) input.value = value; });
-            const legacySeats = { general: ['general'], special: ['special'], either: ['general', 'special'] };
-            const selectedSeats = ktxOptions.seat_classes || legacySeats[ktxOptions.seat_class] || ['general', 'special'];
-            document.querySelectorAll('input[name="ktx_seat_classes"]').forEach(input => input.checked = selectedSeats.includes(input.value));
-            document.getElementById('setting_id').value = s.id;
-            ['name', 'weeks_ahead', 'start_date', 'end_date', 'cooldown_days', 'telegram_bot_token', 'telegram_chat_id'].forEach(k => { if (document.getElementById(k) && s[k] !== undefined && s[k] !== null) document.getElementById(k).value = s[k]; });
-            if (s.date_mode) { document.querySelector(`input[name="date_mode"][value="${s.date_mode}"]`).checked = true; toggleDateMode(s.date_mode); }
-            ['selected_days', 'selected_types', 'selected_parks', 'selected_parkinglots'].forEach(g => { if (s[g]) document.querySelectorAll(`input[name="${g}"]`).forEach(c => c.checked = s[g].map(String).includes(c.value)); });
-        }
-        function getFormData() { const d = { name: document.getElementById('name').value, is_active: document.getElementById('is_active').checked, include_waiting: document.getElementById('include_waiting').checked, date_mode: document.querySelector('input[name="date_mode"]:checked').value, weeks_ahead: parseInt(document.getElementById('weeks_ahead').value), start_date: document.getElementById('start_date').value, end_date: document.getElementById('end_date').value, cooldown_days: parseInt(document.getElementById('cooldown_days').value), telegram_bot_token: document.getElementById('telegram_bot_token').value, telegram_chat_id: document.getElementById('telegram_chat_id').value, selected_days: [], selected_types: [], selected_parks: [], selected_parkinglots: [] }; ['selected_days', 'selected_types', 'selected_parks', 'selected_parkinglots'].forEach(g => d[g] = Array.from(document.querySelectorAll(`input[name="${g}"]:checked`)).map(c => c.value)); d.category = document.getElementById('category').value;
-            d.ktx_options = {};
-            if (d.category !== 'knps') Object.assign(d, {selected_days: [], selected_types: [], selected_parks: [], weeks_ahead: 0, start_date: null, end_date: null, include_waiting: false, date_mode: 'weekday'});
-            if (d.category !== 'moduparking') d.selected_parkinglots = [];
-            if (d.category === 'ktx') {
-                ['departure', 'arrival', 'date', 'start_time', 'end_time'].forEach(key => d.ktx_options[key] = document.getElementById('ktx_' + key).value);
-                d.ktx_options.seat_classes = Array.from(document.querySelectorAll('input[name="ktx_seat_classes"]:checked')).map(input => input.value);
-                ['departure_code', 'arrival_code'].forEach(key => { const value = document.getElementById('ktx_' + key).value; if (value) d.ktx_options[key] = value; });
-            }
-            return d; }
-        async function handleSave(e) { e.preventDefault(); if (!form.reportValidity()) return; if (document.getElementById('category').value === 'ktx' && !document.querySelector('input[name="ktx_seat_classes"]:checked')) { showToast('Select at least one seat class', 'error'); return; } const id = document.getElementById('setting_id').value; try { const r = await fetch(id ? `/api/settings/${id}` : '/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(getFormData()) }); if (r.ok) { showToast('Saved'); closeModal(); fetchSettings(); } else { const err = await r.json().catch(() => ({})); showToast(err.error || `Save failed (${r.status})`, 'error'); } } catch (e) { showToast('Network error', 'error'); } }
-        async function handleTest(e) {
-            e.preventDefault();
-            btnTest.disabled = true;
-            try {
-                const response = await fetch('/api/check?test=true', { method: 'POST' });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.error || 'Check failed');
-                showToast(result.ktx?.status === 'queued' ? 'KTX check queued' : 'Check triggered');
-            } catch (error) { showToast(error.message, 'error'); }
-            finally { btnTest.disabled = false; }
-        }
-        async function handleClearAllHistory(e) { e.preventDefault(); if (confirm('Clear all?')) { const r = await fetch('/api/history', { method: 'DELETE' }); if (r.ok) showToast('Cleared'); } } async function handleClearHistory(e) { e.preventDefault(); const id = document.getElementById('setting_id').value; if (id && confirm('Sure?')) { const r = await fetch(`/api/settings/${id}/history`, { method: 'DELETE' }); if (r.ok) showToast('Cleared'); } }
-        function showToast(m, t = 'success') { const toast = document.createElement('div'); toast.className = `toast-enter flex items-center gap-3 px-4 py-3 border-2 border-forest-950 shadow-brutal pointer-events-auto ${t === 'success' ? 'bg-forest-950' : 'bg-alert'} text-white`; toast.textContent = m; toastContainer.appendChild(toast); setTimeout(() => { toast.classList.replace('toast-enter', 'toast-exit'); toast.addEventListener('animationend', () => toast.remove()); }, 3000); }
-    </script>
+    <script type="module" src="/js/dashboard.js"></script>
 </body></html>

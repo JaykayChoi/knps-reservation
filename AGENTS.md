@@ -13,11 +13,13 @@ KNPS Reservation monitors Korea National Park Service campsite availability and 
 
 ## Repository Map
 
-- `backend/app.py`: Flask entry point, API routes, scheduled check orchestration
-- `backend/db.py`: Supabase access, settings, status, and notification history
-- `backend/scraper.py`: authenticated KNPS availability requests
-- `backend/modu_scraper.py`: Modu Parking monthly-pass requests
-- `backend/notifier.py`: Telegram message construction and delivery
+- `backend/app.py`: Flask app factory and dependency composition
+- `backend/api/`: HTTP routes and legacy payload adaptation
+- `backend/domain/`: canonical monitor, schedule, and quiet-hour rules
+- `backend/providers/`: KNPS, Modu Parking, and anonymous KTX requests
+- `backend/repositories/`: Supabase settings, catalog, status, and history access
+- `backend/services/`: shared check, notification, maintenance, and job orchestration
+- `backend/notifications/`: Telegram message construction and delivery
 - `backend/tests/`: pytest unit and route tests
 - `frontend/index.html`: settings dashboard
 - `frontend/search.html`: live availability search
@@ -44,8 +46,7 @@ For historical context, consult `.claude/memory/MEMORY.md` only when it is relev
 
 - Never hardcode, commit, or print tokens, passwords, chat IDs, Supabase keys, or other secrets. Local configuration files such as `config.ini`, `.env*`, and `backend/.env` are ignored and should only be inspected when the task explicitly requires it.
 - Do not run `supabase db reset`, destructive SQL, or data-deleting API calls until the target is confirmed to be the local development environment.
-- Do not run `test_api.py` as an automated test; it sends a real POST request to a running server.
-- Do not use a bare `pytest` command from `backend/`. The top-level `backend/test_scraper_*.py` scripts perform live KNPS requests during collection.
+- Live provider checks under `scripts/manual/` are opt-in and must not run as automated tests.
 - `backend/tests/test_integration.py::test_telegram_test_notification` may send a real Telegram message when credentials are loaded. Exclude it from normal verification unless the user explicitly wants the live integration tested.
 - Playwright E2E tests require the Flask app and database and may create or edit settings. Run them only against a disposable/local environment.
 

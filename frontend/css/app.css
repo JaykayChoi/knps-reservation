@@ -1,0 +1,87 @@
+[hidden], .hidden { display: none !important; }
+body { background-color: #f4f1ea; color: #0f2018; font-family: 'Outfit', sans-serif; }
+.category-button[aria-pressed="true"],
+.station-tab[aria-selected="true"],
+.station-region[aria-pressed="true"] { background: #0f2018; color: white; }
+.brutal-card {
+  border: 2px solid #0f2018;
+  background: white;
+  box-shadow: 6px 6px 0 0 rgba(15, 32, 24, 1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.brutal-input {
+  border: 2px solid #0f2018;
+  padding: 0.75rem 1rem;
+  width: 100%;
+  background: white;
+  transition: all 0.2s ease;
+  font-family: 'Outfit', sans-serif;
+}
+.brutal-input:focus {
+  outline: none;
+  box-shadow: 4px 4px 0 0 rgba(15, 32, 24, 1);
+  transform: translate(-2px, -2px);
+}
+.brutal-checkbox, .brutal-radio {
+  appearance: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid #0f2018;
+  background-color: white;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+}
+.brutal-radio { border-radius: 50%; }
+.brutal-checkbox:checked { background-color: #0f2018; }
+.brutal-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 2px;
+  width: 6px;
+  height: 14px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.brutal-radio:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #0f2018;
+}
+.brutal-btn {
+  border: 2px solid #0f2018;
+  font-weight: 600;
+  transition: all 0.1s ease;
+  box-shadow: 4px 4px 0 0 rgba(15, 32, 24, 1);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.brutal-btn:active:not(:disabled) { box-shadow: none; transform: translate(4px, 4px); }
+.brutal-btn:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; transform: translate(4px, 4px); }
+.brutal-btn-primary { background-color: #0f2018; color: white; }
+.brutal-btn-secondary { background-color: #e9c46a; color: #0f2018; }
+.brutal-btn-outline { background-color: white; color: #0f2018; }
+.brutal-btn-danger { background-color: #e63946; color: white; }
+.station-pill {
+  border: 2px solid rgba(15, 32, 24, 0.35);
+  border-radius: 9999px;
+  background: white;
+  padding: 0.7rem 1rem;
+  font-weight: 700;
+}
+.station-pill:hover, .station-pill:focus { border-color: #0f2018; background: #e1efe6; outline: none; }
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: #f4f1ea; border-left: 2px solid #0f2018; }
+::-webkit-scrollbar-thumb { background: #0f2018; }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.toast-enter { animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }

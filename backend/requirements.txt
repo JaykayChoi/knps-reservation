@@ -4,6 +4,3 @@ requests
 supabase
 python-dotenv
 gunicorn
-
-# Pinned read-only client; schedule search does not log in.
-korail2 @ https://github.com/dhfhfk/korail2/archive/4b134266fff097ea0fd54e9f760cb128b6c8f878.zip
