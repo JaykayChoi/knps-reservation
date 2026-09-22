@@ -129,14 +129,18 @@ function render() {
   if (!monitors.length) { const empty = byId('empty-state'); empty.classList.remove('hidden'); container.appendChild(empty); return; }
   monitors.forEach(monitor => {
     const card = document.createElement('article'); card.className = 'brutal-card p-6 flex flex-col gap-4';
+    const active = monitor.is_active !== false;
     const title = document.createElement('h3'); title.className = 'font-serif text-xl font-bold'; title.textContent = monitor.name;
+    const badge = document.createElement('span'); badge.className = `shrink-0 border-2 border-forest-950 px-2 py-1 text-xs font-bold uppercase tracking-wide ${active ? 'bg-forest-950 text-white' : 'bg-sand text-forest-950'}`;
+    badge.textContent = active ? 'Active' : 'Paused';
+    const heading = document.createElement('div'); heading.className = 'flex items-start justify-between gap-3'; heading.append(title, badge);
     const info = document.createElement('p'); info.textContent = `${labels[monitor.category]} · ${details(monitor)}`;
     const quiet = document.createElement('p'); quiet.className = 'text-sm text-forest-700'; quiet.textContent = monitor.quiet_hours_enabled ? `알림 중지 ${String(monitor.quiet_hours_start).slice(0,5)}–${String(monitor.quiet_hours_end).slice(0,5)} KST` : '알림 중지 시간 꺼짐';
     const actions = document.createElement('div'); actions.className = 'flex gap-3 mt-auto';
-    [['Status', async () => { await api(`/api/settings/${monitor.id}`, jsonOptions('PUT', { is_active: !monitor.is_active })); await load(); }],
+    [[active ? 'Pause' : 'Activate', async () => { await api(`/api/settings/${monitor.id}`, jsonOptions('PUT', { is_active: !active })); await load(); }],
      ['Edit', () => openModal(monitor.id)], ['Del', async () => { if (confirm('Sure?')) { await api(`/api/settings/${monitor.id}`, { method: 'DELETE' }); await load(); } }]]
       .forEach(([text, action]) => { const button = document.createElement('button'); button.className = 'brutal-btn px-4 py-2'; button.textContent = text; button.onclick = action; actions.appendChild(button); });
-    card.append(title, info, quiet, actions); container.appendChild(card);
+    card.append(heading, info, quiet, actions); container.appendChild(card);
   });
 }
 

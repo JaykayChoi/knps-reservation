@@ -47,6 +47,32 @@ test('edit parking preserves active state and only shows its fields', async ({ p
   expect(body.telegram_chat_id).toBeUndefined();
 });
 
+test('monitor cards show active state and update it after toggling', async ({ page }) => {
+  let pausedIsActive = false;
+  await page.route('**/api/settings/all', route => route.fulfill({ json: [
+    { id: 1, name: 'Running monitor', category: 'ktx', is_active: true,
+      options: { departure: 'Seoul', arrival: 'Busan', date: '2099-10-01', seat_classes: ['general'] },
+      quiet_hours_enabled: false },
+    { id: 2, name: 'Paused monitor', category: 'ktx', is_active: pausedIsActive,
+      options: { departure: 'Seoul', arrival: 'Busan', date: '2099-10-01', seat_classes: ['general'] },
+      quiet_hours_enabled: false },
+  ] }));
+  await page.route('**/api/settings/2', route => {
+    pausedIsActive = route.request().postDataJSON().is_active;
+    return route.fulfill({ json: { success: true } });
+  });
+  await page.reload();
+
+  const running = page.locator('#settings-list article').filter({ hasText: 'Running monitor' });
+  const paused = page.locator('#settings-list article').filter({ hasText: 'Paused monitor' });
+  await expect(running.getByText('Active', { exact: true })).toBeVisible();
+  await expect(running.getByRole('button', { name: 'Pause' })).toBeVisible();
+  await expect(paused.getByText('Paused', { exact: true })).toBeVisible();
+  await paused.getByRole('button', { name: 'Activate' }).click();
+  await expect(paused.getByText('Active', { exact: true })).toBeVisible();
+  await expect(paused.getByRole('button', { name: 'Pause' })).toBeVisible();
+});
+
 test('category click and drag select a single category and save KTX', async ({ page }) => {
   await page.locator('#btn-add-setting').click();
   await page.locator('[data-category="moduparking"]').dragTo(page.locator('#category-dropzone'));
