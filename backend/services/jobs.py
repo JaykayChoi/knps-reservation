@@ -2,6 +2,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from threading import Lock
 
+from domain.clock import KST
+
 
 class CheckRunner:
     def __init__(self, run_check, executor=None):
@@ -33,6 +35,9 @@ class MaintenanceService:
 
     def run(self):
         now = self.clock()
-        reset = self.history.reset_for_kst_day()
+        local_now = now.astimezone(KST)
+        reset = False
+        if local_now.hour == 0 and local_now.minute == 0:
+            reset = self.history.reset_for_kst_day()
         self.history.delete_older_than(now - timedelta(days=self.retention_days))
         return reset

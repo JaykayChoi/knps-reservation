@@ -1,5 +1,6 @@
 from concurrent.futures import Future
 from datetime import datetime, timezone
+from unittest.mock import Mock
 
 from services.jobs import CheckRunner, MaintenanceService
 
@@ -54,7 +55,17 @@ def test_maintenance_uses_atomic_daily_reset_and_31_day_minimum():
             self.cutoff = cutoff
 
     history = History()
-    now = datetime(2026, 9, 22, 0, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 9, 21, 15, 0, tzinfo=timezone.utc)
     MaintenanceService(history, lambda: now, retention_days=7).run()
     assert history.resets == 1
     assert (now - history.cutoff).days == 31
+
+
+def test_maintenance_skips_daily_reset_outside_first_kst_minute():
+    history = Mock()
+    now = datetime(2026, 9, 22, 5, 20, tzinfo=timezone.utc)
+
+    assert MaintenanceService(history, lambda: now).run() is False
+
+    history.reset_for_kst_day.assert_not_called()
+    history.delete_older_than.assert_called_once()

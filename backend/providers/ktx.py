@@ -4,6 +4,7 @@ import logging
 import random
 import string
 import time
+from urllib.parse import urlsplit
 
 import requests
 
@@ -203,6 +204,12 @@ def fetch_availability(options, *, client=None):
         return results
     except KtxError:
         raise
+    except requests.HTTPError as exc:
+        response = exc.response
+        status = response.status_code if response is not None else 'unknown'
+        host = urlsplit(response.url).hostname if response is not None else None
+        logger.error('KTX lookup failed (HTTP %s from %s)', status, host or 'unknown host')
+        raise KtxError('KTX lookup failed; check stations and Korail availability') from None
     except Exception as exc:
         logger.error('KTX lookup failed (%s)', type(exc).__name__)
         raise KtxError('KTX lookup failed; check stations and Korail availability') from None

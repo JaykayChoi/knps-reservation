@@ -1,6 +1,8 @@
+import logging
 from unittest.mock import Mock
 
 import pytest
+import requests
 
 from providers import ktx
 
@@ -82,6 +84,20 @@ def test_signer_matches_fixed_official_request_vector():
     signer = ktx.DynaPathSigner(started_at=1700000000000)
     token = signer.token(timestamp=1700000001234, nonce='AB12')
     assert token == ('bEeEPSYj1Dm5CMM4Pv4ff4GR4GR4GR4GDK3FFmJaRyn3PkmGmvPkqJaRPyD3wdPv1f5G4wMCMfmudCEaGPGGPmGldCMG41Gf513Pff3myw5mug4CRCn9JlJC1vJdD4nnJEv4uYmRfGkgJE9JgqCMKJl44uGCMYf5d3kg4mPPvv4uCJkg4al4mPPvv4uC4133kg4mPPvv4uC4YYyndJa133Mf5v3lJGllGPfGPfGPfGPfGPfG4j3jymknCjdGPfGPfGPfGlPC1vf5F3lJG4jPkMmknCDk4nCynDvlFa5mCnfvkj3YKmkMPd33qq4jwf5dY1CYD5')
+
+
+def test_http_failure_logs_only_status_and_host(caplog):
+    response = requests.Response()
+    response.status_code = 403
+    response.url = ktx.SCHEDULE_URL + '?secret=must-not-appear'
+    client = Mock()
+    client.search_page.side_effect = requests.HTTPError(response=response)
+
+    with caplog.at_level(logging.ERROR), pytest.raises(ktx.KtxError):
+        ktx.fetch_availability(OPTIONS, client=client)
+
+    assert 'HTTP 403 from smart.letskorail.com' in caplog.text
+    assert 'secret' not in caplog.text
 
 
 def test_station_list_is_normalized_and_session_timeout_is_explicit():
