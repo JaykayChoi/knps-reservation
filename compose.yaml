@@ -1,0 +1,9 @@
+services:
+  ktx-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.ktx-worker
+    container_name: knps-ktx-worker
+    env_file:
+      - backend/.env
+    restart: unless-stopped

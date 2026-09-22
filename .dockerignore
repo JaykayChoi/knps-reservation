@@ -1,0 +1,12 @@
+.git
+.venv
+node_modules
+old
+supabase
+frontend
+scripts
+backend/tests
+**/.env
+**/.env.*
+**/__pycache__
+**/*.pyc

@@ -50,6 +50,21 @@ CHECK_PROBABILITY=0.2
 
 KTX does not require a Korail ID or password. Telegram token and chat ID are stored per monitor.
 
+### Local Docker KTX worker
+
+Set production `SUPABASE_URL` and `SUPABASE_KEY` in `backend/.env`, then run
+`docker compose up -d --build ktx-worker` from the repository root. No HTTP port
+or domain is needed. The worker checks once on startup and draws a new 2–5 minute
+delay after every completed check. Each run loads only active KTX monitors and
+does not query Korail during a monitor's notification quiet hours. It shares
+Supabase notification history and cooldowns with the main service. Use
+`docker compose logs -f ktx-worker` to inspect it and
+`docker compose stop ktx-worker` to stop it. Disable other scheduled KTX checks
+to avoid duplicate provider requests.
+The web service's scheduled `/api/check` runs KNPS and Modu Parking only. KTX
+monitoring runs in the local Docker worker; the web KTX settings and manual
+search remain available.
+
 ## Persistence
 
 `monitor_settings` stores common fields, Telegram delivery details, cooldown, quiet hours, and category-specific `options`. `notification_history` uses generic `monitor_id`, `target_date`, `target_key`, `item_key`, and `is_waiting` keys for every category, including KTX. A zero cooldown and Test Now do not write history.

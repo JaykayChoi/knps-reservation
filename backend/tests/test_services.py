@@ -172,3 +172,31 @@ def test_check_service_skips_quiet_monitor_before_provider_call():
     summary = CheckService(MonitorRepo([quiet]), {'ktx': provider}, Notifications(), lambda: NOW).run()
     assert provider.calls == []
     assert summary.skipped_quiet == 1
+
+
+def test_check_service_only_checks_selected_active_category():
+    active_ktx = monitor(id=1)
+    inactive_ktx = monitor(id=2, is_active=False)
+    active_knps = monitor(id=3, category='knps', options={})
+    provider = Provider()
+    notifications = Notifications()
+    summary = CheckService(
+        MonitorRepo([active_ktx, inactive_ktx, active_knps]),
+        {'ktx': provider, 'knps': Provider()}, notifications, lambda: NOW,
+    ).run(categories={'ktx'})
+
+    assert summary.checked == 1
+    assert len(provider.calls) == 1
+    assert [call[0] for call in notifications.calls] == [1]
+
+
+def test_ktx_category_filter_does_not_query_during_quiet_hours():
+    quiet = monitor(quiet_hours_enabled=True, quiet_hours_start='11:00',
+                    quiet_hours_end='13:00')
+    provider = Provider()
+    summary = CheckService(MonitorRepo([quiet]), {'ktx': provider},
+                           Notifications(), lambda: NOW).run(categories={'ktx'})
+
+    assert summary.checked == 1
+    assert summary.skipped_quiet == 1
+    assert provider.calls == []

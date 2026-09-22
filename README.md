@@ -54,6 +54,18 @@ CHECK_PROBABILITY=0.2
 
 KTX 조회에는 아이디와 비밀번호가 필요하지 않습니다. Telegram token과 chat ID는 각 모니터에 저장합니다.
 
+### 로컬 Docker KTX 작업
+
+`backend/.env`에 운영 `SUPABASE_URL`과 `SUPABASE_KEY`를 설정한 뒤 저장소 루트에서
+`docker compose up -d --build ktx-worker`를 실행합니다. HTTP 포트나 도메인은 필요하지 않습니다.
+작업은 시작 시 한 번, 이후 각 검사가 끝날 때마다 새로 뽑은 2~5분 대기 시간 후 실행됩니다.
+매번 활성 KTX 설정만 읽으며, 설정별 알림 중지 시간에는 코레일에 조회 요청을 보내지 않습니다.
+기존 알림 이력과 쿨다운을 Supabase에서 공유합니다. 상태 확인은
+`docker compose logs -f ktx-worker`, 중지는 `docker compose stop ktx-worker`로 합니다.
+다른 환경의 KTX 정기 검사가 계속 켜져 있으면 중복 조회가 발생할 수 있습니다.
+웹 서비스의 `/api/check` 정기 검사는 KNPS와 모두의주차장만 실행합니다. KTX는 로컬
+Docker 작업만 조회하며, 웹 서비스의 KTX 설정 화면과 수동 검색은 유지됩니다.
+
 ## 데이터 모델
 
 `monitor_settings`에는 이름, 카테고리, 활성화 여부, 쿨다운, Telegram 채널, 알림 중지 시간과 `options`가 있습니다.

@@ -1,0 +1,10 @@
+FROM python:3.13-slim
+
+WORKDIR /app/backend
+
+COPY backend/requirements.txt /app/backend/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY backend/ /app/backend/
+
+CMD ["python", "-u", "ktx_worker.py"]

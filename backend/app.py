@@ -66,7 +66,8 @@ def build_dependencies(config=None):
             logger.exception('Monitor maintenance failed')
         current = clock.now().astimezone(KST)
         allow_knps = current.hour in (0, 1) or random.random() < config.check_probability
-        summary = checks.run(is_test=is_test, allow_knps=allow_knps)
+        summary = checks.run(is_test=is_test, allow_knps=allow_knps,
+                             categories={'knps', 'moduparking'})
         try:
             status.record_check(clock.now())
         except Exception:

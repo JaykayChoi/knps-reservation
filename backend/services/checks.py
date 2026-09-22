@@ -41,7 +41,7 @@ class CheckService:
                 options, today=now.astimezone(KST).date())
         return options
 
-    def run(self, *, is_test=False, allow_knps=True):
+    def run(self, *, is_test=False, allow_knps=True, categories=None):
         summary = CheckSummary()
         cache = {}
         try:
@@ -50,12 +50,14 @@ class CheckService:
             summary.errors.append('Unable to load monitors')
             return summary
         for monitor in monitors:
+            category = monitor.get('category')
+            if categories is not None and category not in categories:
+                continue
             summary.checked += 1
             now = self.clock()
             if is_quiet_time(monitor, now):
                 summary.skipped_quiet += 1
                 continue
-            category = monitor.get('category')
             if category == 'knps' and not allow_knps:
                 continue
             provider = self.providers.get(category)
