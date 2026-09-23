@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from urllib.parse import urlencode
 
 from domain.models import Availability, DeliveryBatch
 
@@ -41,16 +42,44 @@ def _ktx_line(item):
     detail = item.details
     seat = {'general': '일반실', 'special': '특실', 'standing': '입석'}.get(
         detail.get('seat_class'), detail.get('seat_class', ''))
-    return (f"• KTX {detail.get('train_no', '')} · {_time(detail.get('departure_time', ''))} → "
+    return (f"{_date(detail.get('date', item.history.target_date))} · "
+            f"{detail.get('departure', '')} → {detail.get('arrival', '')}\n"
+            f"• KTX {detail.get('train_no', '')} · {_time(detail.get('departure_time', ''))} → "
             f"{_time(detail.get('arrival_time', ''))} · {seat} 예약 가능")
+
+
+def _ktx_footer(monitor, items):
+    options = monitor.get('options') or {}
+    first = items[0]
+    detail = first.details
+    departure = options.get('departure') or detail.get('departure')
+    arrival = options.get('arrival') or detail.get('arrival')
+    date = options.get('date') or detail.get('date') or first.history.target_date
+    departure_time = detail.get('departure_time') or options.get('start_time', '')
+    if not departure or not arrival or not date:
+        url = 'https://www.korail.com/ticket/main'
+    else:
+        params = {
+            'txtGoStart': departure,
+            'txtGoEnd': arrival,
+            'txtGoAbrdDt': str(date).replace('-', ''),
+            'txtGoHour': str(departure_time).replace(':', '').ljust(6, '0')[:6],
+            'txtPsgFlg_1': '1',
+            'txtTrnGpCd': '100',
+            'radJobId': '1',
+            'txtMenuId': '11',
+        }
+        if options.get('departure_code') and options.get('arrival_code'):
+            params['txtGoStartCode'] = options['departure_code']
+            params['txtGoEndCode'] = options['arrival_code']
+        url = f'https://www.korail.com/ticket/search/list?{urlencode(params)}'
+    return f'성인 1명 기준입니다. 코레일에서 현재 좌석을 확인해 주세요.\n{url}'
 
 
 FORMAT = {
     'knps': ('국립공원 빈자리 알림', _knps_line, 30, 'https://reservation.knps.or.kr'),
     'moduparking': ('월정기권 자리 알림', _parking_line, 30, ''),
-    'ktx': ('KTX 빈자리 알림', _ktx_line, 20,
-            '성인 1명 기준입니다. 코레일에서 현재 좌석을 확인해 주세요.\n'
-            'https://www.korail.com/ticket/search/list'),
+    'ktx': ('KTX 빈자리 알림', _ktx_line, 20, ''),
 }
 
 
@@ -98,6 +127,8 @@ def build_batches(monitor, items, *, is_test=False):
     if category not in FORMAT:
         raise ValueError(f'Unsupported notification category: {category}')
     _, formatter, max_items, footer = FORMAT[category]
+    if category == 'ktx':
+        footer = _ktx_footer(monitor, items)
     groups = _split_messages(_header(monitor, category, is_test), items,
                              formatter, max_items, footer)
     return tuple(DeliveryBatch(

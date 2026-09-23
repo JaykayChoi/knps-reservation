@@ -1,3 +1,5 @@
+from urllib.parse import parse_qs, urlsplit
+
 from domain.models import Availability, DeliveryBatch, HistoryKey
 from notifications.formatters import build_batches
 from notifications.telegram import TelegramSender
@@ -32,6 +34,33 @@ def test_ktx_batches_are_grouped_and_label_standing():
     assert '입석 예약 가능' in batches[0].text
     assert '추석 연휴' in batches[0].text
     assert '코레일' in batches[0].text
+
+
+def test_ktx_alert_link_prefills_korail_search_conditions():
+    setting = monitor(options={
+        'departure': '서울', 'arrival': '부산',
+        'departure_code': '0001', 'arrival_code': '0020',
+        'date': '2099-10-01', 'start_time': '08:00', 'end_time': '18:00',
+        'seat_classes': ['general'],
+    })
+    message = build_batches(setting, (item(),))[0].text
+    url = next(line for line in message.splitlines() if line.startswith('https://www.korail.com/'))
+    parsed = urlsplit(url)
+    params = parse_qs(parsed.query)
+
+    assert '2099-10-01' in message
+    assert '서울' in message
+    assert '부산' in message
+    assert parsed.path == '/ticket/search/list'
+    assert params['txtGoStart'] == ['서울']
+    assert params['txtGoEnd'] == ['부산']
+    assert params['txtGoStartCode'] == ['0001']
+    assert params['txtGoEndCode'] == ['0020']
+    assert params['txtGoAbrdDt'] == ['20991001']
+    assert params['txtGoHour'] == ['090000']
+    assert params['txtPsgFlg_1'] == ['1']
+    assert params['txtTrnGpCd'] == ['100']
+    assert 'secret-token' not in url
 
 
 def test_knps_and_parking_use_readable_messages_and_links():
