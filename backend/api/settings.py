@@ -67,6 +67,25 @@ def update_setting(monitor_id):
         return jsonify({'error': 'Monitor not found'}), 404
 
 
+@blueprint.post('/api/settings/<int:monitor_id>/duplicate')
+def duplicate_setting(monitor_id):
+    source = _deps().monitors.get(monitor_id)
+    if not source:
+        return jsonify({'error': 'Monitor not found'}), 404
+    try:
+        copy = normalize_monitor({
+            **{field: source[field] for field in source if field in (
+                'category', 'options', 'cooldown_days', 'quiet_hours_enabled',
+                'quiet_hours_start', 'quiet_hours_end', *SECRET_FIELDS)},
+            'name': f"{source['name']} (copy)",
+            'is_active': False,
+        })
+        created = _deps().monitors.create(copy)
+        return jsonify({'success': True, 'setting': _public_monitor(created)}), 201
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+
+
 @blueprint.delete('/api/settings/<int:monitor_id>')
 def delete_setting(monitor_id):
     try:

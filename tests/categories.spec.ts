@@ -73,6 +73,29 @@ test('monitor cards show active state and update it after toggling', async ({ pa
   await expect(paused.getByRole('button', { name: 'Pause' })).toBeVisible();
 });
 
+test('duplicate button creates a paused card and keeps the original card', async ({ page }) => {
+  const settings = [{
+    id: 1, name: 'Parking monitor', category: 'moduparking', is_active: true,
+    options: { lot_ids: ['12'] }, cooldown_days: 2, quiet_hours_enabled: false,
+  }];
+  await page.route('**/api/settings/all', route => route.fulfill({ json: settings }));
+  await page.route('**/api/settings/1/duplicate', route => {
+    expect(route.request().method()).toBe('POST');
+    settings.push({ ...settings[0], id: 2, name: 'Parking monitor (copy)', is_active: false });
+    return route.fulfill({ status: 201, json: { success: true, setting: settings[1] } });
+  });
+  await page.reload();
+
+  await page.locator('#settings-list article').filter({ hasText: 'Parking monitor' })
+    .getByRole('button', { name: 'Duplicate' }).click();
+
+  await expect(page.locator('#settings-list article')).toHaveCount(2);
+  await expect(page.locator('#settings-list article').filter({ hasText: 'Parking monitor (copy)' })
+    .getByText('Paused', { exact: true })).toBeVisible();
+  await expect(page.locator('#settings-list article').filter({ hasText: 'Parking monitor' }).first()
+    .getByText('Active', { exact: true })).toBeVisible();
+});
+
 test('category click and drag select a single category and save KTX', async ({ page }) => {
   await page.locator('#btn-add-setting').click();
   await page.locator('[data-category="moduparking"]').dragTo(page.locator('#category-dropzone'));

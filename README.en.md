@@ -95,6 +95,7 @@ Example KTX options:
 - `GET /api/settings`
 - `PUT /api/settings`
 - `PUT /api/settings/{id}`
+- `POST /api/settings/{id}/duplicate`: copy a monitor's filters, schedule, quiet hours, cooldown, and Telegram credentials into a new paused monitor named `<original> (copy)`; notification history is not copied
 - `DELETE /api/settings/{id}`
 - `DELETE /api/settings/{id}/history`
 - `DELETE /api/history`

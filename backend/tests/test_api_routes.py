@@ -119,6 +119,32 @@ def test_create_rejects_invalid_json_and_accepts_legacy_boundary():
     assert response.json['setting']['options'] == {'lot_ids': ['12']}
 
 
+def test_duplicate_setting_copies_private_configuration_but_starts_paused():
+    web, deps = client()
+    original = deepcopy(deps.monitors.rows[1])
+
+    response = web.post('/api/settings/1/duplicate')
+
+    assert response.status_code == 201
+    copy = deps.monitors.rows[2]
+    assert copy['id'] != original['id']
+    assert copy['name'] == 'Train (copy)'
+    assert copy['is_active'] is False
+    assert copy['options'] == original['options']
+    assert copy['cooldown_days'] == original['cooldown_days']
+    assert copy['telegram_bot_token'] == original['telegram_bot_token']
+    assert copy['telegram_chat_id'] == original['telegram_chat_id']
+    assert deps.monitors.rows[1] == original
+    assert response.json['setting']['telegram_configured'] is True
+    assert 'telegram_bot_token' not in response.json['setting']
+    assert 'telegram_chat_id' not in response.json['setting']
+
+
+def test_duplicate_missing_setting_returns_not_found():
+    web, _ = client()
+    assert web.post('/api/settings/99/duplicate').status_code == 404
+
+
 def test_check_is_queued_without_blocking_request():
     web, deps = client()
     response = web.post('/api/check?test=true')

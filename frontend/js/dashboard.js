@@ -136,10 +136,12 @@ function render() {
     const heading = document.createElement('div'); heading.className = 'flex items-start justify-between gap-3'; heading.append(title, badge);
     const info = document.createElement('p'); info.textContent = `${labels[monitor.category]} · ${details(monitor)}`;
     const quiet = document.createElement('p'); quiet.className = 'text-sm text-forest-700'; quiet.textContent = monitor.quiet_hours_enabled ? `알림 중지 ${String(monitor.quiet_hours_start).slice(0,5)}–${String(monitor.quiet_hours_end).slice(0,5)} KST` : '알림 중지 시간 꺼짐';
-    const actions = document.createElement('div'); actions.className = 'flex gap-3 mt-auto';
+    const actions = document.createElement('div'); actions.className = 'flex flex-wrap gap-2 mt-auto';
     [[active ? 'Pause' : 'Activate', async () => { await api(`/api/settings/${monitor.id}`, jsonOptions('PUT', { is_active: !active })); await load(); }],
-     ['Edit', () => openModal(monitor.id)], ['Del', async () => { if (confirm('Sure?')) { await api(`/api/settings/${monitor.id}`, { method: 'DELETE' }); await load(); } }]]
-      .forEach(([text, action]) => { const button = document.createElement('button'); button.className = 'brutal-btn px-4 py-2'; button.textContent = text; button.onclick = action; actions.appendChild(button); });
+     ['Edit', () => openModal(monitor.id)],
+     ['Duplicate', async () => { try { await api(`/api/settings/${monitor.id}/duplicate`, { method: 'POST' }); await load(); toast('Duplicated as paused'); } catch (error) { toast(error.message, 'error'); } }],
+     ['Del', async () => { if (confirm('Sure?')) { await api(`/api/settings/${monitor.id}`, { method: 'DELETE' }); await load(); } }]]
+      .forEach(([text, action]) => { const button = document.createElement('button'); button.className = 'brutal-btn px-3 py-2'; button.textContent = text; button.onclick = action; actions.appendChild(button); });
     card.append(heading, info, quiet, actions); container.appendChild(card);
   });
 }

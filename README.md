@@ -102,6 +102,7 @@ Docker 작업만 조회하며, 웹 서비스의 KTX 설정 화면과 수동 검�
 - `GET /api/settings`: 활성 모니터
 - `PUT /api/settings`: 모니터 생성
 - `PUT /api/settings/{id}`: 부분 수정
+- `POST /api/settings/{id}/duplicate`: 필터·일정·알림 중지 시간·쿨다운·Telegram 정보를 새 모니터로 복제합니다. 이름에 `(copy)`가 붙고 비활성 상태로 생성되며 알림 이력은 복제하지 않습니다.
 - `DELETE /api/settings/{id}`: 삭제
 - `DELETE /api/settings/{id}/history`: 설정별 이력 삭제
 - `DELETE /api/history`: 전체 이력 삭제
