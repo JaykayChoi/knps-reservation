@@ -8,6 +8,7 @@ This service checks KNPS campsites, Modu Parking monthly passes, and KTX seats, 
 - Category-specific filters live in one canonical `options` JSON object.
 - Quiet hours are optional per monitor, disabled by default, and evaluated in Korea Standard Time.
 - Identical upstream queries are cached within a check run.
+- Setting cards show the last successful check completion in KST and refresh every 15 seconds while the page is visible. The local KTX worker records completion through the same service.
 - Available results are grouped into messages and split within Telegram limits.
 - Only items in successfully delivered batches are written to cooldown history.
 - KTX lookup is anonymous and directly uses the schedule contract used by Korail's official web ticket search.
@@ -54,7 +55,7 @@ KTX does not require a Korail ID or password. Telegram token and chat ID are sto
 
 Set production `SUPABASE_URL` and `SUPABASE_KEY` in `backend/.env`, then run
 `docker compose up -d --build ktx-worker` from the repository root. No HTTP port
-or domain is needed. The worker checks once on startup and draws a new 2–5 minute
+or domain is needed. The worker checks once on startup and draws a new 5–200 second
 delay after every completed check. Each run loads only active KTX monitors and
 does not query Korail during a monitor's notification quiet hours.
 After three consecutive Korail query failures for the same monitor, the worker
@@ -72,6 +73,8 @@ search remain available.
 ## Persistence
 
 `monitor_settings` stores common fields, Telegram delivery details, cooldown, quiet hours, and category-specific `options`. `notification_history` uses generic `monitor_id`, `target_date`, `target_key`, `item_key`, and `is_waiting` keys for every category, including KTX. A zero cooldown and Test Now do not write history.
+
+The read-only `last_checked_at` (`TIMESTAMPTZ`) records completion after querying and notification processing finish without errors, including successful queries with no availability. Failures and checks skipped for quiet hours, inactive settings, or sampling leave the previous timestamp unchanged. New and duplicated settings start with `NULL`, displayed as not checked yet. Settings read endpoints include this field; settings updates cannot change it.
 
 Example KTX options:
 
@@ -125,6 +128,8 @@ npx playwright test
 Run the opt-in live KNPS check with `python scripts/manual/check-knps.py 20261001` after configuring credentials. The live Telegram test remains opt-in.
 
 ## Migration
+
+Before deploying this feature, apply `20260930010000_monitor_last_checked_at.sql` to production Supabase, then update the web service and rebuild the local KTX container. Existing completion times are not inferred; the next successful check records them.
 
 `20260922010000_generalize_monitors.sql` preserves existing IDs and data while renaming `user_settings` to `monitor_settings`, converting category-specific columns and `ktx_options` into `options`, and applying disabled quiet-hour defaults.
 

@@ -124,6 +124,24 @@ function details(monitor) {
   return o.date_mode === 'absolute' ? `${o.start_date || ''} to ${o.end_date || ''}` : `${o.weeks_ahead || 0} wks (${(o.days || []).join(',')})`;
 }
 
+function lastCheck(monitor) {
+  const element = document.createElement('p');
+  element.className = 'text-sm text-forest-700';
+  const date = monitor.last_checked_at ? new Date(monitor.last_checked_at) : null;
+  if (!date || Number.isNaN(date.getTime())) {
+    element.textContent = '마지막 체크: 아직 체크하지 않음';
+    return element;
+  }
+  const time = document.createElement('time');
+  time.dateTime = monitor.last_checked_at;
+  time.textContent = `${new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+  }).format(date)} KST`;
+  element.append('마지막 체크: ', time);
+  return element;
+}
+
 function render() {
   const container = byId('settings-list'); container.replaceChildren();
   if (!monitors.length) { const empty = byId('empty-state'); empty.classList.remove('hidden'); container.appendChild(empty); return; }
@@ -142,11 +160,11 @@ function render() {
      ['Duplicate', async () => { try { await api(`/api/settings/${monitor.id}/duplicate`, { method: 'POST' }); await load(); toast('Duplicated as paused'); } catch (error) { toast(error.message, 'error'); } }],
      ['Del', async () => { if (confirm('Sure?')) { await api(`/api/settings/${monitor.id}`, { method: 'DELETE' }); await load(); } }]]
       .forEach(([text, action]) => { const button = document.createElement('button'); button.className = 'brutal-btn px-3 py-2'; button.textContent = text; button.onclick = action; actions.appendChild(button); });
-    card.append(heading, info, quiet, actions); container.appendChild(card);
+    card.append(heading, info, quiet, lastCheck(monitor), actions); container.appendChild(card);
   });
 }
 
-async function load() { try { monitors = await api('/api/settings/all'); render(); } catch (error) { toast(error.message, 'error'); } }
+async function load({ silent = false } = {}) { try { monitors = await api('/api/settings/all'); render(); } catch (error) { if (!silent) toast(error.message, 'error'); } }
 
 async function save(event) {
   event.preventDefault(); if (!byId('settings-form').reportValidity()) return;
@@ -158,6 +176,7 @@ async function save(event) {
 const picker = createStationPicker((target, station) => { byId(`ktx_${target}`).value = station.name; byId(`ktx_${target}_code`).value = station.code; });
 document.addEventListener('DOMContentLoaded', async () => {
   await loadCatalogs(); await load();
+  setInterval(() => { if (!document.hidden) load({ silent: true }); }, 15000);
   document.querySelectorAll('[data-category]').forEach(button => { button.onclick = () => setCategory(button.dataset.category); button.ondragstart = event => event.dataTransfer.setData('text/plain', button.dataset.category); });
   const dropzone = byId('category-dropzone'); dropzone.ondragover = event => event.preventDefault(); dropzone.ondrop = event => { event.preventDefault(); setCategory(event.dataTransfer.getData('text/plain')); };
   document.querySelectorAll('[data-station-target]').forEach(button => button.onclick = () => picker.open(button.dataset.stationTarget));

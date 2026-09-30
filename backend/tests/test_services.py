@@ -1,5 +1,6 @@
 from copy import deepcopy
 from datetime import datetime, timezone
+import pytest
 
 from domain.models import Availability, DeliveryResult, HistoryKey, QueryResult
 from services.checks import CheckService
@@ -41,6 +42,10 @@ class MonitorRepo:
     def get(self, monitor_id):
         row = self.rows.get(monitor_id)
         return deepcopy(row) if row else None
+
+    def update(self, monitor_id, changes):
+        self.rows[monitor_id].update(deepcopy(changes))
+        return deepcopy(self.rows[monitor_id])
 
 
 class HistoryRepo:
@@ -235,3 +240,116 @@ def test_check_summary_tracks_query_success_failure_and_not_quiet_skips():
 
     assert summary.query_succeeded == {1}
     assert summary.query_failed == {2}
+
+
+def test_check_records_completion_after_notifications_for_each_cached_ktx_monitor():
+    repo = MonitorRepo([monitor(id=1), monitor(id=2)])
+    finished = datetime(2026, 9, 22, 3, 5, tzinfo=timezone.utc)
+    current = NOW
+
+    class CompletingNotifications(Notifications):
+        def notify(self, monitor, items, is_test=False):
+            nonlocal current
+            assert 'last_checked_at' not in repo.rows[monitor['id']]
+            current = finished
+            return super().notify(monitor, items, is_test)
+
+    provider = Provider(result=QueryResult(()))
+    summary = CheckService(repo, {'ktx': provider}, CompletingNotifications(),
+                           lambda: current).run(categories={'ktx'})
+
+    assert summary.errors == []
+    assert len(provider.calls) == 1
+    assert [row['last_checked_at'] for row in repo.rows.values()] == [
+        finished.isoformat(), finished.isoformat()]
+    assert repo.rows[1]['options'] == monitor()['options']
+
+
+def test_check_preserves_previous_completion_on_failure_or_skip():
+    previous = '2026-09-21T00:00:00+00:00'
+    rows = [
+        monitor(id=1, last_checked_at=previous),
+        monitor(id=2, last_checked_at=previous, is_active=False),
+        monitor(id=3, last_checked_at=previous, quiet_hours_enabled=True,
+                quiet_hours_start='11:00', quiet_hours_end='13:00'),
+        monitor(id=4, last_checked_at=previous, category='knps', options={}),
+        monitor(id=5, last_checked_at=previous, category='moduparking', options={}),
+    ]
+    repo = MonitorRepo(rows)
+    CheckService(repo, {'ktx': Provider(error=RuntimeError('blocked'))},
+                 Notifications(), lambda: NOW).run(categories={'ktx', 'knps'}, allow_knps=False)
+
+    assert all(row['last_checked_at'] == previous for row in repo.rows.values())
+
+
+def test_check_does_not_record_completion_for_partial_query_or_notification_errors():
+    from services.notifications import NotificationOutcome
+
+    class FailedNotifications:
+        def notify(self, *_args, **_kwargs):
+            return NotificationOutcome(errors=['Delivery failed'])
+
+    for result, notifications in [
+        (QueryResult((), errors=('Partial query failed',)), Notifications()),
+        (QueryResult(()), FailedNotifications()),
+    ]:
+        repo = MonitorRepo([monitor()])
+        summary = CheckService(repo, {'ktx': Provider(result=result)}, notifications,
+                               lambda: NOW).run()
+        assert summary.errors
+        assert 'last_checked_at' not in repo.rows[1]
+
+
+def test_completion_write_failure_is_reported_and_other_monitors_continue(caplog):
+    class FailingRepo(MonitorRepo):
+        def update(self, monitor_id, changes):
+            if monitor_id == 1:
+                raise RuntimeError('secret database details')
+            return super().update(monitor_id, changes)
+
+    repo = FailingRepo([monitor(id=1), monitor(id=2)])
+    summary = CheckService(repo, {'ktx': Provider()}, Notifications(), lambda: NOW).run()
+
+    assert summary.errors == ['Monitor 1 completion time write failed (RuntimeError)']
+    assert 'last_checked_at' not in repo.rows[1]
+    assert repo.rows[2]['last_checked_at'] == NOW.isoformat()
+    assert 'completion time' in caplog.text
+    assert 'secret database details' not in caplog.text
+
+
+def test_web_categories_record_their_own_completion_times():
+    repo = MonitorRepo([
+        monitor(id=1, category='knps', options={'date_mode': 'weekday', 'weeks_ahead': 1,
+                                            'days': ['Fri']}),
+        monitor(id=2, category='moduparking', options={'lot_ids': ['12']}),
+        monitor(id=3),
+    ])
+    summary = CheckService(repo, {'knps': Provider(), 'moduparking': Provider()},
+                           Notifications(), lambda: NOW).run(categories={'knps', 'moduparking'})
+    assert summary.errors == []
+    assert repo.rows[1]['last_checked_at'] == NOW.isoformat()
+    assert repo.rows[2]['last_checked_at'] == NOW.isoformat()
+    assert 'last_checked_at' not in repo.rows[3]
+
+
+@pytest.mark.parametrize('result,cooldown', [
+    (QueryResult((availability(),)), set()),
+    (QueryResult(()), set()),
+    (QueryResult((availability(),)), {availability().history}),
+])
+def test_check_preserves_completion_when_settings_change_during_query(result, cooldown):
+    previous = '2026-09-21T00:00:00+00:00'
+    for changes in ({'is_active': False}, {'options': {'date': '2099-10-02'}}):
+        repo = MonitorRepo([monitor(last_checked_at=previous)])
+
+        class ChangingProvider(Provider):
+            def fetch(self, options):
+                repo.update(1, changes)
+                return super().fetch(options)
+
+        sender = Sender()
+        notifications = NotificationService(repo, HistoryRepo(cooldown=cooldown), sender, lambda: NOW)
+        CheckService(repo, {'ktx': ChangingProvider(result=result)}, notifications, lambda: NOW).run()
+
+        assert sender.batches == []
+        assert repo.rows[1]['last_checked_at'] == previous

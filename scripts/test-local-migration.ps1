@@ -33,6 +33,8 @@ try {
     Invoke-PsqlFile "$root/scripts/db/monitor_refactor_rollback.sql" "06-rollback.sql"
     Invoke-PsqlFile "$root/tests/database/legacy_rollback_assertions.sql" "07-rollback-assert.sql"
     Invoke-PsqlFile "$root/supabase/migrations/20260922010000_generalize_monitors.sql" "08-forward-again.sql"
+    Invoke-PsqlFile "$root/supabase/migrations/20260930010000_monitor_last_checked_at.sql" "09-completion.sql"
+    Invoke-PsqlFile "$root/tests/database/completion_assertions.sql" "10-completion-assert.sql"
     Write-Host "Monitor migration forward/verify/rollback/forward test passed."
 }
 finally {

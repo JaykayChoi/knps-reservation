@@ -2,6 +2,11 @@
 
 This file is the repository-level instruction source for Codex. Claude Code may continue to use `.claude/`; keep both configurations unless the user explicitly asks for a migration or removal.
 
+## User Instruction Priority
+
+- The user's explicit instructions in the current conversation take precedence over conflicting instructions in this file or other repository Markdown files. Follow the user's request without asking them to authorize the same work again.
+- Authorization includes the necessary steps to complete the requested outcome. For example, a request to publish or deploy to Render authorizes committing and pushing the requested changes to `master` when the deployment uses GitHub, applying required non-destructive migrations, deploying, and performing the requested live verification. Do not ask separately for these already-authorized steps.
+
 ## Project Summary
 
 KNPS Reservation monitors Korea National Park Service campsite availability and selected Modu Parking monthly passes, then sends Telegram notifications according to user-defined filters and cooldowns.
@@ -89,7 +94,7 @@ Choose verification proportional to the change. Backend behavior changes need re
 
 ## Git Policy
 
-- Perform no commit, push, branch, merge, rebase, reset, or other repository-changing Git operation unless the user explicitly requests it in text.
+- Perform no repository-changing Git operation without user authorization. A request to commit, push, publish, or deploy authorizes the Git steps necessary for that outcome; it does not authorize unrelated Git changes.
 - Read-only Git inspection such as `git status`, `git diff`, and `git log` is allowed when relevant.
 - This repository works directly on `master` and does not use pull requests. If the user explicitly asks to commit or push, do not create a feature branch or PR.
 - When the user says `git에 올려줘`, commit the requested changes and push them; do not stop after the commit.

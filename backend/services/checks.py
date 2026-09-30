@@ -1,10 +1,14 @@
 from copy import deepcopy
 from dataclasses import dataclass, field
+from datetime import timezone
+import logging
 
 from domain.clock import KST
 from domain.notification_policy import is_quiet_time
 from domain.schedules import knps_target_dates
 from providers.registry import query_cache_key
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -94,4 +98,15 @@ class CheckService:
             summary.messages += outcome.messages
             summary.skipped_quiet += int(outcome.skipped_quiet)
             summary.errors.extend(outcome.errors)
+            if (not result.errors and not outcome.errors
+                    and not outcome.skipped_quiet and not outcome.skipped_stale):
+                try:
+                    self.monitors.update(monitor['id'], {
+                        'last_checked_at': self.clock().astimezone(timezone.utc).isoformat(),
+                    })
+                except Exception as exc:
+                    error = (f"Monitor {monitor['id']} completion time write failed "
+                             f"({type(exc).__name__})")
+                    logger.error(error)
+                    summary.errors.append(error)
         return summary

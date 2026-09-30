@@ -9,6 +9,7 @@ class NotificationOutcome:
     notified: int = 0
     messages: int = 0
     skipped_quiet: bool = False
+    skipped_stale: bool = False
     errors: list[str] = field(default_factory=list)
 
 
@@ -44,6 +45,18 @@ class NotificationService:
             outcome.errors.append(f"Monitor {monitor.get('id')} has no Telegram channel")
             return outcome
 
+        # Validate even when no seats are available or every item is on cooldown.
+        try:
+            latest = self.monitors.get(monitor['id'])
+        except Exception:
+            outcome.errors.append(f"Monitor {monitor['id']} refresh failed")
+            return outcome
+        current, quiet = self._still_current(monitor, latest, self.clock())
+        if not current:
+            outcome.skipped_quiet = quiet
+            outcome.skipped_stale = not quiet
+            return outcome
+
         eligible = []
         cooldown = monitor.get('cooldown_days', 3)
         for item in items:
@@ -67,6 +80,7 @@ class NotificationService:
             if quiet:
                 outcome.skipped_quiet = True
             if not current:
+                outcome.skipped_stale = not quiet
                 break
             result = self.sender.send(batch)
             if not result.delivered:

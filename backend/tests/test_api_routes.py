@@ -37,7 +37,7 @@ class Monitors:
     def update(self, monitor_id, value):
         if monitor_id not in self.rows:
             raise MonitorNotFound()
-        self.rows[monitor_id] = {'id': monitor_id, **value}
+        self.rows[monitor_id].update(deepcopy(value))
         return self.rows[monitor_id]
 
     def delete(self, monitor_id):
@@ -121,6 +121,7 @@ def test_create_rejects_invalid_json_and_accepts_legacy_boundary():
 
 def test_duplicate_setting_copies_private_configuration_but_starts_paused():
     web, deps = client()
+    deps.monitors.rows[1]['last_checked_at'] = '2026-09-30T01:02:03+00:00'
     original = deepcopy(deps.monitors.rows[1])
 
     response = web.post('/api/settings/1/duplicate')
@@ -130,6 +131,7 @@ def test_duplicate_setting_copies_private_configuration_but_starts_paused():
     assert copy['id'] != original['id']
     assert copy['name'] == 'Train (copy)'
     assert copy['is_active'] is False
+    assert copy.get('last_checked_at') is None
     assert copy['options'] == original['options']
     assert copy['cooldown_days'] == original['cooldown_days']
     assert copy['telegram_bot_token'] == original['telegram_bot_token']
@@ -138,6 +140,19 @@ def test_duplicate_setting_copies_private_configuration_but_starts_paused():
     assert response.json['setting']['telegram_configured'] is True
     assert 'telegram_bot_token' not in response.json['setting']
     assert 'telegram_chat_id' not in response.json['setting']
+
+
+def test_completion_time_is_public_read_only_and_survives_settings_edits():
+    web, deps = client()
+    completed = '2026-09-30T01:02:03+00:00'
+    deps.monitors.rows[1]['last_checked_at'] = completed
+    for path in ('/api/settings', '/api/settings/all', '/api/settings/1'):
+        value = web.get(path).json
+        assert (value[0] if isinstance(value, list) else value)['last_checked_at'] == completed
+    updated = web.put('/api/settings/1', json={'name': 'Renamed'})
+    assert updated.json['setting']['last_checked_at'] == completed
+    assert web.put('/api/settings/1', json={'last_checked_at': None}).status_code == 400
+    assert deps.monitors.rows[1]['last_checked_at'] == completed
 
 
 def test_duplicate_missing_setting_returns_not_found():

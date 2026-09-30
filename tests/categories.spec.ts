@@ -97,6 +97,8 @@ test('duplicate button creates a paused card and keeps the original card', async
 });
 
 test('category click and drag select a single category and save KTX', async ({ page }) => {
+  // With Tailwind intercepted, keep both drag targets away from the viewport edge.
+  await page.setViewportSize({ width: 1280, height: 1600 });
   await page.locator('#btn-add-setting').click();
   await page.locator('[data-category="moduparking"]').dragTo(page.locator('#category-dropzone'));
   await expect(page.locator('#category')).toHaveValue('moduparking');
@@ -149,4 +151,25 @@ test('quiet hours default off and are saved per monitor', async ({ page }) => {
   const saved = page.waitForRequest(r => r.url().endsWith('/api/settings/6') && r.method() === 'PUT');
   await page.locator('#btn-save-setting').click();
   expect((await saved).postDataJSON().quiet_hours_enabled).toBe(false);
+});
+
+test('last completed checks show in KST and refresh for local KTX', async ({ page }) => {
+  let completed: string | null = null;
+  await page.route('**/api/settings/all', route => route.fulfill({ json: [
+    { id: 1, name: 'Server monitor', category: 'moduparking', is_active: true,
+      options: { lot_ids: ['12'] }, last_checked_at: '2026-09-29T15:01:02+00:00' },
+    { id: 2, name: 'Local KTX', category: 'ktx', is_active: true,
+      options: {}, last_checked_at: completed },
+  ] }));
+  await page.clock.install();
+  await page.reload();
+  const server = page.locator('#settings-list article').filter({ hasText: 'Server monitor' });
+  const ktx = page.locator('#settings-list article').filter({ hasText: 'Local KTX' });
+  await expect(server.locator('time')).toHaveAttribute('datetime', '2026-09-29T15:01:02+00:00');
+  await expect(server).toContainText('마지막 체크: 2026. 09. 30. 00:01:02 KST');
+  await expect(ktx).toContainText('아직 체크하지 않음');
+  completed = '2026-09-30T01:02:03+00:00';
+  await page.clock.fastForward(15000);
+  await expect(ktx.locator('time')).toHaveAttribute('datetime', completed);
+  await expect(ktx).toContainText('마지막 체크: 2026. 09. 30. 10:02:03 KST');
 });
