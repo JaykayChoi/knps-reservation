@@ -55,7 +55,7 @@ KTX does not require a Korail ID or password. Telegram token and chat ID are sto
 
 Set production `SUPABASE_URL` and `SUPABASE_KEY` in `backend/.env`, then run
 `docker compose up -d --build ktx-worker` from the repository root. No HTTP port
-or domain is needed. The worker checks once on startup and draws a new 5–200 second
+or domain is needed. The worker checks once on startup and draws a new 2–5 minute
 delay after every completed check. Each run loads only active KTX monitors and
 does not query Korail during a monitor's notification quiet hours.
 After three consecutive Korail query failures for the same monitor, the worker
